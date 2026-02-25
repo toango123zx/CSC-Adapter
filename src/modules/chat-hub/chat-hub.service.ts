@@ -1,6 +1,7 @@
 // src/modules/chat-hub/chat-hub.service.ts
 import { Injectable, Logger } from '@nestjs/common';
-import { IChatAdapter, IStandardMessage, Platform, SenderType, MessageType } from 'src/common/interfaces/standard-message.interface';
+import { IChatAdapter, IStandardMessage } from 'src/common/interfaces/standard-message.interface';
+import { Platform, SenderType, MessageType } from 'src/common/enums';
 
 @Injectable()
 export class ChatHubService {
@@ -8,6 +9,7 @@ export class ChatHubService {
   private adapters: Map<Platform, IChatAdapter> = new Map();
 
   // ============ ĐĂNG KÝ ADAPTER ============
+
   registerAdapter(platform: Platform, adapter: IChatAdapter) {
     this.adapters.set(platform, adapter);
     this.logger.log(`✅ Đã đăng ký adapter: ${platform}`);

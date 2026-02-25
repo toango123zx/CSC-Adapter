@@ -1,0 +1,482 @@
+{
+    "chats_summary": [
+        {
+            "id": "TB20J7L2MW",
+            "last_event_per_type": {
+                "filled_form": {
+                    "thread_id": "TB20J7L2NW",
+                    "thread_created_at": "2026-02-25T07:20:56.112000Z",
+                    "event": {
+                        "id": "TB20J7L2NW_1",
+                        "created_at": "2026-02-25T07:20:56.113006Z",
+                        "visibility": "all",
+                        "type": "filled_form",
+                        "properties": {
+                            "lc2": {
+                                "form_type": "prechat"
+                            },
+                            "source": {
+                                "client_id": "c5e4f61e1a6c3b1521b541bc5c5a2ac5"
+                            }
+                        },
+                        "author_id": "079705c3-fb2b-4130-8b37-ed83fbe2bbe8",
+                        "custom_id": "cfyg05zgdic",
+                        "form_id": "201644444",
+                        "form_type": "prechat",
+                        "fields": [
+                            {
+                                "id": "2016444441",
+                                "type": "name",
+                                "label": "Tên:",
+                                "answer": "Ngô Văn Toàn"
+                            },
+                            {
+                                "id": "2016444442",
+                                "type": "email",
+                                "label": "E-mail:",
+                                "answer": "toango123zx.sub1@gmail.com"
+                            }
+                        ]
+                    }
+                },
+                "message": {
+                    "thread_id": "TB20J7L2NW",
+                    "thread_created_at": "2026-02-25T07:20:56.112000Z",
+                    "event": {
+                        "id": "TB20J7L2NW_5",
+                        "created_at": "2026-02-25T07:21:03.482000Z",
+                        "visibility": "all",
+                        "type": "message",
+                        "properties": {
+                            "chats": {
+                                "formatting": "commonmark"
+                            },
+                            "source": {
+                                "client_id": "aa8151b317737a3e79d8e3384e6082de"
+                            }
+                        },
+                        "text": "Can you share more details, please?",
+                        "author_id": "0f91be084458c001afede4baac643f93",
+                        "custom_id": "chatbot_b6f9746f-bdf3-4eb2-8910-b0ad77040b86"
+                    }
+                },
+                "system_message": {
+                    "thread_id": "TB20J7L2NW",
+                    "thread_created_at": "2026-02-25T07:20:56.112000Z",
+                    "event": {
+                        "id": "TB20J7L2NW_6",
+                        "created_at": "2026-02-25T07:21:10.362000Z",
+                        "visibility": "all",
+                        "type": "system_message",
+                        "text": "Ngô Văn Toàn archived the chat",
+                        "system_message_type": "manual_archived_customer",
+                        "text_vars": {
+                            "customer": "Ngô Văn Toàn"
+                        }
+                    }
+                }
+            },
+            "users": [
+                {
+                    "id": "079705c3-fb2b-4130-8b37-ed83fbe2bbe8",
+                    "name": "Ngô Văn Toàn",
+                    "email": "toango123zx.sub1@gmail.com",
+                    "events_seen_up_to": "2026-02-25T07:21:03.482999Z",
+                    "type": "customer",
+                    "present": true,
+                    "created_at": "2026-02-25T07:20:44.000000Z",
+                    "session_fields": [
+                        {
+                            "default_Tn": "Ngô Văn Toàn"
+                        },
+                        {
+                            "default_E-mail": "toango123zx.sub1@gmail.com"
+                        }
+                    ],
+                    "last_visit": {
+                        "id": 1,
+                        "started_at": "2026-02-25T07:20:44.000000Z",
+                        "ended_at": "2026-02-25T07:29:44.000000Z",
+                        "ip": "14.236.46.61",
+                        "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36 Edg/145.0.0.0",
+                        "geolocation": {
+                            "country": "Vietnam",
+                            "country_code": "VN",
+                            "region": "Quảng Nam Province",
+                            "city": "Quang Ha",
+                            "timezone": "Asia/Ho_Chi_Minh",
+                            "latitude": "15.93",
+                            "longitude": "108.27"
+                        },
+                        "last_pages": [
+                            {
+                                "opened_at": "2026-02-25T07:20:44Z",
+                                "url": "https://direct.lc.chat/19531120?onboarding=true"
+                            }
+                        ]
+                    },
+                    "statistics": {
+                        "chats_count": 1,
+                        "threads_count": 1,
+                        "visits_count": 1,
+                        "page_views_count": 1,
+                        "greetings_shown_count": 0,
+                        "greetings_accepted_count": 0
+                    },
+                    "agent_last_event_created_at": "2026-02-25T07:21:03.482000Z",
+                    "customer_last_event_created_at": "2026-02-25T07:21:00.310000Z",
+                    "followed": false,
+                    "online": false,
+                    "group_ids": [
+                        0
+                    ],
+                    "state": "offline",
+                    "greeting_id": 1,
+                    "email_verified": false
+                },
+                {
+                    "id": "0f91be084458c001afede4baac643f93",
+                    "name": "CSC-test",
+                    "email": "0f91be084458c001afede4baac643f93",
+                    "events_seen_up_to": "2026-02-25T07:21:03.482000Z",
+                    "type": "agent",
+                    "present": false,
+                    "avatar": "https://cdn.files-text.com/us-south1/api/lc/img/19531120/b2dda0507a7f9d97439fdf3ac26d9d68.png",
+                    "visibility": "all"
+                }
+            ],
+            "last_thread_summary": {
+                "id": "TB20J7L2NW",
+                "user_ids": [
+                    "0f91be084458c001afede4baac643f93",
+                    "079705c3-fb2b-4130-8b37-ed83fbe2bbe8"
+                ],
+                "properties": {
+                    "routing": {
+                        "continuous": true,
+                        "group_status_at_start": "online",
+                        "idle": false,
+                        "pinned": false,
+                        "start_url": "https://direct.lc.chat/19531120?onboarding=true",
+                        "unassigned": false,
+                        "unreplied": false
+                    },
+                    "source": {
+                        "client_id": "c5e4f61e1a6c3b1521b541bc5c5a2ac5",
+                        "customer_client_id": "c5e4f61e1a6c3b1521b541bc5c5a2ac5"
+                    }
+                },
+                "active": false,
+                "access": {
+                    "group_ids": [
+                        0
+                    ]
+                },
+                "tags": [
+                    "chatbot"
+                ],
+                "created_at": "2026-02-25T07:20:56.112000Z"
+            },
+            "properties": {
+                "routing": {
+                    "continuous": true,
+                    "email_follow_up": true,
+                    "pinned": false,
+                    "was_pinned": false
+                },
+                "source": {
+                    "client_id": "c5e4f61e1a6c3b1521b541bc5c5a2ac5",
+                    "customer_client_id": "c5e4f61e1a6c3b1521b541bc5c5a2ac5"
+                }
+            },
+            "access": {
+                "group_ids": [
+                    0
+                ]
+            },
+            "is_followed": false
+        },
+        {
+            "id": "TA2ZHXSCKR",
+            "last_event_per_type": {
+                "file": {
+                    "thread_id": "TA2ZHXSCLR",
+                    "thread_created_at": "2026-02-25T03:50:51.597000Z",
+                    "event": {
+                        "id": "TA2ZHXSCLR_5",
+                        "created_at": "2026-02-25T03:50:52.649000Z",
+                        "visibility": "all",
+                        "type": "file",
+                        "properties": {
+                            "source": {
+                                "client_id": "bb9e5b2f1ab480e4a715977b7b1b4279"
+                            }
+                        },
+                        "author_id": "toango123zx.sub1@gmail.com",
+                        "name": "calathea.png",
+                        "url": "https://cdn.files-text.com/us-south1/api/lc/att/19531120/da251c3ad43ba479401de77613428819/calathea.png",
+                        "thumbnail_url": "https://cdn.files-text.com/us-south1/api/lc/att/19531120/da251c3ad43ba479401de77613428819/calathea.png?impolicy=thumbnail",
+                        "thumbnail2x_url": "https://cdn.files-text.com/us-south1/api/lc/att/19531120/da251c3ad43ba479401de77613428819/calathea.png?impolicy=thumbnail2x",
+                        "content_type": "image/png",
+                        "size": 175937
+                    }
+                },
+                "message": {
+                    "thread_id": "TA2ZHXSCLR",
+                    "thread_created_at": "2026-02-25T03:50:51.597000Z",
+                    "event": {
+                        "id": "TA2ZHXSCLR_7",
+                        "created_at": "2026-02-25T03:50:52.911000Z",
+                        "visibility": "all",
+                        "type": "message",
+                        "properties": {
+                            "source": {
+                                "client_id": "adbb8f40cf011993b34b8cb6c9f186c0"
+                            }
+                        },
+                        "text": "Yes, please! They sound great 😄",
+                        "author_id": "4fffa1f4-2b6e-42e1-80e5-a3fd02402d1e"
+                    }
+                },
+                "system_message": {
+                    "thread_id": "TB20J5BNGP",
+                    "thread_created_at": "2026-02-25T06:50:13.547000Z",
+                    "event": {
+                        "id": "TB20J5BNGP_1",
+                        "created_at": "2026-02-25T06:50:13.547002Z",
+                        "visibility": "agents",
+                        "type": "system_message",
+                        "properties": {
+                            "source": {
+                                "client_id": "bb9e5b2f1ab480e4a715977b7b1b4279"
+                            }
+                        },
+                        "text": "Reopened - by agent",
+                        "system_message_type": "new_conversation.old_chat"
+                    }
+                }
+            },
+            "users": [
+                {
+                    "id": "4fffa1f4-2b6e-42e1-80e5-a3fd02402d1e",
+                    "name": "Example Customer",
+                    "email": "customer@mail.com",
+                    "events_seen_up_to": "2026-02-25T03:50:52.911000Z",
+                    "type": "customer",
+                    "present": true,
+                    "avatar": "https://cdn.livechat-files.com/api/file/lc/main/default/avatars/v1/Person_01.jpg",
+                    "created_at": "2026-02-25T03:50:51.594141Z",
+                    "statistics": {
+                        "chats_count": 1,
+                        "threads_count": 2,
+                        "visits_count": 0,
+                        "page_views_count": 0,
+                        "greetings_shown_count": 0,
+                        "greetings_accepted_count": 0
+                    },
+                    "followed": false,
+                    "online": false,
+                    "email_verified": false
+                },
+                {
+                    "id": "toango123zx.sub1@gmail.com",
+                    "name": "toango123zx.sub1@gmail.com",
+                    "email": "toango123zx.sub1@gmail.com",
+                    "events_seen_up_to": "2026-02-25T06:50:13.547002Z",
+                    "type": "agent",
+                    "present": true,
+                    "avatar": "",
+                    "visibility": "all"
+                }
+            ],
+            "last_thread_summary": {
+                "id": "TB20J5BNGP",
+                "user_ids": [
+                    "4fffa1f4-2b6e-42e1-80e5-a3fd02402d1e",
+                    "toango123zx.sub1@gmail.com"
+                ],
+                "properties": {
+                    "routing": {
+                        "continuous": true,
+                        "group_status_at_start": "online",
+                        "idle": false,
+                        "pinned": true,
+                        "unassigned": false
+                    },
+                    "source": {
+                        "client_id": "bb9e5b2f1ab480e4a715977b7b1b4279",
+                        "customer_client_id": "adbb8f40cf011993b34b8cb6c9f186c0"
+                    }
+                },
+                "active": true,
+                "access": {
+                    "group_ids": [
+                        0
+                    ]
+                },
+                "tags": [
+                    "sales",
+                    "support"
+                ],
+                "created_at": "2026-02-25T06:50:13.547000Z"
+            },
+            "properties": {
+                "chats": {
+                    "onboarding_agent_id": "toango123zx.sub1@gmail.com"
+                },
+                "routing": {
+                    "continuous": true,
+                    "pinned": true,
+                    "was_pinned": false
+                },
+                "source": {
+                    "client_id": "bb9e5b2f1ab480e4a715977b7b1b4279",
+                    "customer_client_id": "adbb8f40cf011993b34b8cb6c9f186c0"
+                }
+            },
+            "access": {
+                "group_ids": [
+                    0
+                ]
+            },
+            "is_followed": true
+        },
+        {
+            "id": "TA2ZGRMROE",
+            "last_event_per_type": {
+                "system_message": {
+                    "thread_id": "TA2ZGRNU70",
+                    "thread_created_at": "2026-02-25T01:51:36.369000Z",
+                    "event": {
+                        "id": "TA2ZGRNU70_2",
+                        "created_at": "2026-02-25T02:07:36.001000Z",
+                        "visibility": "all",
+                        "type": "system_message",
+                        "text": "Chat archived due to 15 minutes of inactivity",
+                        "system_message_type": "routing.archived_inactive",
+                        "text_vars": {
+                            "duration": "15"
+                        }
+                    }
+                }
+            },
+            "users": [
+                {
+                    "id": "toango123zx.sub1@gmail.com",
+                    "name": "toango123zx.sub1@gmail.com",
+                    "email": "toango123zx.sub1@gmail.com",
+                    "type": "agent",
+                    "present": true,
+                    "avatar": "",
+                    "visibility": "all"
+                }
+            ],
+            "last_thread_summary": {
+                "id": "TA2ZGRNU70",
+                "user_ids": [
+                    "toango123zx.sub1@gmail.com"
+                ],
+                "properties": {
+                    "routing": {
+                        "continuous": false,
+                        "group_status_at_start": "offline",
+                        "idle": false
+                    },
+                    "source": {
+                        "client_id": "personal_access_token"
+                    }
+                },
+                "active": false,
+                "access": {
+                    "group_ids": [
+                        0
+                    ]
+                },
+                "created_at": "2026-02-25T01:51:36.369000Z"
+            },
+            "properties": {
+                "routing": {
+                    "continuous": false
+                },
+                "source": {
+                    "client_id": "personal_access_token"
+                }
+            },
+            "access": {
+                "group_ids": [
+                    0
+                ]
+            },
+            "is_followed": false
+        },
+        {
+            "id": "TA2ZGRNT2G",
+            "last_event_per_type": {
+                "system_message": {
+                    "thread_id": "TA2ZGRNT3G",
+                    "thread_created_at": "2026-02-25T01:51:16.852000Z",
+                    "event": {
+                        "id": "TA2ZGRNT3G_2",
+                        "created_at": "2026-02-25T02:06:36.000000Z",
+                        "visibility": "all",
+                        "type": "system_message",
+                        "text": "Chat archived due to 15 minutes of inactivity",
+                        "system_message_type": "routing.archived_inactive",
+                        "text_vars": {
+                            "duration": "15"
+                        }
+                    }
+                }
+            },
+            "users": [
+                {
+                    "id": "toango123zx.sub1@gmail.com",
+                    "name": "toango123zx.sub1@gmail.com",
+                    "email": "toango123zx.sub1@gmail.com",
+                    "type": "agent",
+                    "present": true,
+                    "avatar": "",
+                    "visibility": "all"
+                }
+            ],
+            "last_thread_summary": {
+                "id": "TA2ZGRNT3G",
+                "user_ids": [
+                    "toango123zx.sub1@gmail.com"
+                ],
+                "properties": {
+                    "routing": {
+                        "continuous": false,
+                        "group_status_at_start": "offline",
+                        "idle": false
+                    },
+                    "source": {
+                        "client_id": "personal_access_token"
+                    }
+                },
+                "active": false,
+                "access": {
+                    "group_ids": [
+                        0
+                    ]
+                },
+                "created_at": "2026-02-25T01:51:16.852000Z"
+            },
+            "properties": {
+                "routing": {
+                    "continuous": false
+                },
+                "source": {
+                    "client_id": "personal_access_token"
+                }
+            },
+            "access": {
+                "group_ids": [
+                    0
+                ]
+            },
+            "is_followed": false
+        }
+    ],
+    "found_chats": 4
+}

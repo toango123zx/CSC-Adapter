@@ -2,12 +2,12 @@ import { Controller, Post, Get, Body } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse } from '@nestjs/swagger';
 import { ChatHubService } from './chat-hub.service';
 import { SendMessageDto } from './dto/send-message.dto';
-import { SenderType, MessageType } from '../../common/interfaces/standard-message.interface';
+import { SenderType, MessageType } from '../../common/enums';
 
 @ApiTags('Chat Hub API')
 @Controller('chat')
 export class ChatHubController {
-  constructor(private readonly chatHubService: ChatHubService) {}
+  constructor(private readonly chatHubService: ChatHubService) { }
 
   @Post('send')
   @ApiOperation({ summary: 'Gửi tin nhắn đến Khách hàng qua API' })

@@ -1,0 +1,2424 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CSC-Adapter — Tài liệu API</title>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=Syne:wght@400;600;700;800&family=DM+Sans:ital,wght@0,300;0,400;0,500;1,300&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0a0e1a;
+    --bg2: #111827;
+    --bg3: #1a2234;
+    --card: #151e2e;
+    --border: #1e2d45;
+    --accent1: #3b82f6;
+    --accent2: #06b6d4;
+    --accent3: #8b5cf6;
+    --accent4: #10b981;
+    --accent5: #f59e0b;
+    --red: #ef4444;
+    --text: #e2e8f0;
+    --text2: #94a3b8;
+    --text3: #64748b;
+    --get: #10b981;
+    --post: #3b82f6;
+    --ws: #8b5cf6;
+    --code-bg: #0d1117;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  html { scroll-behavior: smooth; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'DM Sans', sans-serif;
+    font-weight: 300;
+    line-height: 1.7;
+    min-height: 100vh;
+  }
+
+  /* ---- SIDEBAR ---- */
+  .layout { display: flex; min-height: 100vh; }
+
+  .sidebar {
+    width: 260px;
+    min-height: 100vh;
+    background: var(--bg2);
+    border-right: 1px solid var(--border);
+    position: sticky;
+    top: 0;
+    height: 100vh;
+    overflow-y: auto;
+    flex-shrink: 0;
+    padding-bottom: 40px;
+  }
+
+  .sidebar-logo {
+    padding: 28px 24px 20px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .logo-title {
+    font-family: 'Syne', sans-serif;
+    font-weight: 800;
+    font-size: 18px;
+    color: var(--text);
+    letter-spacing: -0.5px;
+  }
+
+  .logo-sub {
+    font-size: 11px;
+    color: var(--text3);
+    font-family: 'JetBrains Mono', monospace;
+    margin-top: 4px;
+    letter-spacing: 0.5px;
+  }
+
+  .version-badge {
+    display: inline-block;
+    background: var(--accent1);
+    color: white;
+    font-size: 9px;
+    font-family: 'JetBrains Mono', monospace;
+    font-weight: 600;
+    padding: 2px 7px;
+    border-radius: 3px;
+    margin-top: 8px;
+    letter-spacing: 1px;
+  }
+
+  .nav-section { padding: 16px 0; }
+
+  .nav-label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 9px;
+    font-weight: 600;
+    letter-spacing: 2px;
+    color: var(--text3);
+    padding: 0 24px 8px;
+    text-transform: uppercase;
+  }
+
+  .nav-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 24px;
+    cursor: pointer;
+    font-size: 13px;
+    color: var(--text2);
+    text-decoration: none;
+    transition: all 0.15s;
+    border-left: 2px solid transparent;
+  }
+
+  .nav-item:hover { background: var(--bg3); color: var(--text); border-left-color: var(--accent1); }
+  .nav-item.active { color: var(--accent2); border-left-color: var(--accent2); background: rgba(6,182,212,0.06); }
+
+  .nav-badge {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 9px;
+    font-weight: 700;
+    padding: 1px 6px;
+    border-radius: 3px;
+    margin-left: auto;
+    letter-spacing: 0.5px;
+  }
+
+  .badge-get { background: rgba(16,185,129,0.15); color: var(--get); }
+  .badge-post { background: rgba(59,130,246,0.15); color: var(--post); }
+  .badge-ws { background: rgba(139,92,246,0.15); color: var(--ws); }
+
+  /* ---- MAIN ---- */
+  .main { flex: 1; max-width: 960px; padding: 48px 56px; overflow-x: hidden; }
+
+  /* ---- HERO ---- */
+  .hero {
+    margin-bottom: 60px;
+    padding-bottom: 48px;
+    border-bottom: 1px solid var(--border);
+    position: relative;
+  }
+
+  .hero::before {
+    content: '';
+    position: absolute;
+    top: -48px; left: -56px; right: -56px;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, var(--accent1), var(--accent2), transparent);
+  }
+
+  .hero-tag {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    color: var(--accent2);
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    margin-bottom: 16px;
+  }
+
+  .hero-title {
+    font-family: 'Syne', sans-serif;
+    font-size: 42px;
+    font-weight: 800;
+    letter-spacing: -1.5px;
+    line-height: 1.1;
+    margin-bottom: 20px;
+    background: linear-gradient(135deg, #e2e8f0 0%, #94a3b8 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+
+  .hero-desc {
+    font-size: 16px;
+    color: var(--text2);
+    max-width: 620px;
+    line-height: 1.8;
+    margin-bottom: 28px;
+  }
+
+  .hero-meta {
+    display: flex;
+    gap: 16px;
+    flex-wrap: wrap;
+  }
+
+  .meta-chip {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 16px;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    font-size: 13px;
+    color: var(--text2);
+  }
+
+  .meta-chip .dot {
+    width: 7px; height: 7px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+
+  /* ---- ARCHITECTURE DIAGRAM ---- */
+  .arch-box {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 32px;
+    margin-bottom: 48px;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .arch-box::after {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 3px;
+    background: linear-gradient(90deg, var(--accent1), var(--accent2), var(--accent3));
+  }
+
+  .section-title {
+    font-family: 'Syne', sans-serif;
+    font-size: 20px;
+    font-weight: 700;
+    margin-bottom: 6px;
+    color: var(--text);
+    letter-spacing: -0.3px;
+  }
+
+  .section-sub {
+    font-size: 13px;
+    color: var(--text3);
+    margin-bottom: 24px;
+    font-family: 'JetBrains Mono', monospace;
+  }
+
+  /* FLOW DIAGRAM */
+  .flow {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0;
+    flex-wrap: wrap;
+    margin: 24px 0;
+  }
+
+  .flow-node {
+    background: var(--bg3);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 16px 20px;
+    text-align: center;
+    min-width: 120px;
+    position: relative;
+  }
+
+  .flow-icon { font-size: 24px; margin-bottom: 6px; }
+  .flow-label { font-size: 11px; font-weight: 600; color: var(--text); letter-spacing: 0.3px; }
+  .flow-sub { font-size: 9px; color: var(--text3); font-family: 'JetBrains Mono', monospace; margin-top: 3px; }
+
+  .flow-node.hub {
+    background: linear-gradient(135deg, rgba(59,130,246,0.15), rgba(139,92,246,0.15));
+    border-color: var(--accent1);
+    min-width: 150px;
+    padding: 20px 24px;
+  }
+
+  .flow-node.hub .flow-label { color: var(--accent2); font-size: 13px; }
+
+  .flow-arrow {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+    padding: 0 8px;
+    position: relative;
+  }
+
+  .arrow-line {
+    width: 40px;
+    height: 2px;
+    background: linear-gradient(90deg, var(--accent1), var(--accent2));
+    position: relative;
+  }
+
+  .arrow-line::after {
+    content: '▶';
+    position: absolute;
+    right: -8px;
+    top: -7px;
+    font-size: 8px;
+    color: var(--accent2);
+  }
+
+  .arrow-label {
+    font-size: 9px;
+    color: var(--text3);
+    font-family: 'JetBrains Mono', monospace;
+    white-space: nowrap;
+  }
+
+  .flow-both {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .arrow-down { font-size: 16px; color: var(--text3); padding: 4px; }
+
+  /* ---- SECTION HEADERS ---- */
+  .section-header {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    margin-bottom: 28px;
+    padding-top: 48px;
+  }
+
+  .section-header:first-child { padding-top: 0; }
+
+  .section-icon {
+    width: 42px; height: 42px;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 20px;
+    flex-shrink: 0;
+  }
+
+  .icon-tg { background: rgba(59,130,246,0.15); }
+  .icon-lc { background: rgba(16,185,129,0.15); }
+  .icon-hub { background: rgba(139,92,246,0.15); }
+  .icon-ws { background: rgba(245,158,11,0.15); }
+
+  .section-header-text h2 {
+    font-family: 'Syne', sans-serif;
+    font-size: 22px;
+    font-weight: 700;
+    letter-spacing: -0.5px;
+    color: var(--text);
+  }
+
+  .section-header-text p {
+    font-size: 13px;
+    color: var(--text3);
+    margin-top: 2px;
+  }
+
+  /* ---- API CARDS ---- */
+  .api-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    margin-bottom: 20px;
+    overflow: hidden;
+    transition: border-color 0.2s;
+  }
+
+  .api-card:hover { border-color: rgba(59,130,246,0.4); }
+
+  .api-header {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 18px 22px;
+    cursor: pointer;
+    user-select: none;
+  }
+
+  .method-badge {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    font-weight: 700;
+    padding: 3px 10px;
+    border-radius: 5px;
+    letter-spacing: 1px;
+    flex-shrink: 0;
+    min-width: 52px;
+    text-align: center;
+  }
+
+  .method-get { background: rgba(16,185,129,0.15); color: var(--get); border: 1px solid rgba(16,185,129,0.3); }
+  .method-post { background: rgba(59,130,246,0.15); color: var(--post); border: 1px solid rgba(59,130,246,0.3); }
+  .method-ws { background: rgba(139,92,246,0.15); color: var(--ws); border: 1px solid rgba(139,92,246,0.3); }
+
+  .api-path {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text);
+    flex: 1;
+  }
+
+  .api-title {
+    font-size: 13px;
+    color: var(--text2);
+    margin-left: auto;
+    max-width: 280px;
+    text-align: right;
+  }
+
+  .api-toggle {
+    font-size: 12px;
+    color: var(--text3);
+    flex-shrink: 0;
+    transition: transform 0.2s;
+  }
+
+  .api-body {
+    border-top: 1px solid var(--border);
+    padding: 22px;
+    display: none;
+  }
+
+  .api-card.open .api-body { display: block; }
+  .api-card.open .api-toggle { transform: rotate(180deg); }
+
+  .api-desc {
+    font-size: 14px;
+    color: var(--text2);
+    margin-bottom: 20px;
+    line-height: 1.7;
+  }
+
+  /* PARAMS TABLE */
+  .params-title {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--text3);
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    margin-bottom: 10px;
+    margin-top: 20px;
+  }
+
+  .params-title:first-child { margin-top: 0; }
+
+  .params-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+    margin-bottom: 4px;
+  }
+
+  .params-table th {
+    background: var(--bg3);
+    color: var(--text3);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    padding: 9px 14px;
+    text-align: left;
+    border: 1px solid var(--border);
+  }
+
+  .params-table td {
+    padding: 10px 14px;
+    border: 1px solid var(--border);
+    vertical-align: top;
+  }
+
+  .param-name {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    color: var(--accent2);
+    font-weight: 600;
+  }
+
+  .param-type {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    color: var(--accent3);
+    background: rgba(139,92,246,0.08);
+    padding: 2px 7px;
+    border-radius: 4px;
+    white-space: nowrap;
+  }
+
+  .param-req {
+    font-size: 10px;
+    font-family: 'JetBrains Mono', monospace;
+    font-weight: 700;
+    padding: 2px 6px;
+    border-radius: 4px;
+  }
+
+  .req-yes { background: rgba(239,68,68,0.15); color: var(--red); }
+  .req-no { background: rgba(100,116,139,0.15); color: var(--text3); }
+
+  .param-desc { color: var(--text2); font-size: 13px; }
+
+  /* CODE BLOCKS */
+  .code-wrap {
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    overflow: hidden;
+    margin-top: 8px;
+    margin-bottom: 16px;
+  }
+
+  .code-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 9px 16px;
+    background: var(--bg3);
+    border-bottom: 1px solid var(--border);
+  }
+
+  .code-lang {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    color: var(--text3);
+    letter-spacing: 1px;
+    text-transform: uppercase;
+  }
+
+  .code-copy {
+    font-size: 10px;
+    color: var(--text3);
+    cursor: pointer;
+    padding: 2px 8px;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    background: none;
+    font-family: 'JetBrains Mono', monospace;
+    transition: all 0.15s;
+  }
+  .code-copy:hover { color: var(--accent2); border-color: var(--accent2); }
+
+  pre {
+    padding: 18px;
+    overflow-x: auto;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12.5px;
+    line-height: 1.7;
+    color: var(--text);
+  }
+
+  .tok-key { color: #79c0ff; }
+  .tok-str { color: #a5d6ff; }
+  .tok-num { color: #d2a8ff; }
+  .tok-bool { color: #f2cc60; }
+  .tok-null { color: #ff7b72; }
+  .tok-cmt { color: #8b949e; font-style: italic; }
+  .tok-prop { color: #7ee787; }
+  .tok-method { color: #d2a8ff; }
+
+  /* FLOW MINI */
+  .flow-mini {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 14px 18px;
+    background: var(--bg3);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    margin-bottom: 20px;
+    flex-wrap: wrap;
+  }
+
+  .flow-step {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12px;
+    color: var(--text2);
+  }
+
+  .step-num {
+    width: 20px; height: 20px;
+    border-radius: 50%;
+    background: var(--accent1);
+    color: white;
+    font-size: 10px;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: 'JetBrains Mono', monospace;
+    flex-shrink: 0;
+  }
+
+  .flow-sep { color: var(--text3); font-size: 14px; }
+
+  /* RESPONSE STATUS */
+  .response-row {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 10px;
+    align-items: flex-start;
+  }
+
+  .status-code {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    font-weight: 700;
+    padding: 2px 9px;
+    border-radius: 5px;
+    flex-shrink: 0;
+    margin-top: 1px;
+  }
+
+  .status-2xx { background: rgba(16,185,129,0.15); color: var(--get); }
+  .status-4xx { background: rgba(239,68,68,0.15); color: var(--red); }
+
+  .response-desc { font-size: 13px; color: var(--text2); }
+
+  /* INTERFACE SCHEMA */
+  .interface-box {
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--accent3);
+    border-radius: 8px;
+    padding: 20px;
+    margin-bottom: 24px;
+  }
+
+  .interface-title {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--accent3);
+    margin-bottom: 14px;
+  }
+
+  /* NOTE BOX */
+  .note-box {
+    display: flex;
+    gap: 12px;
+    padding: 14px 18px;
+    border-radius: 8px;
+    margin: 16px 0;
+    font-size: 13px;
+    line-height: 1.6;
+  }
+
+  .note-info { background: rgba(59,130,246,0.08); border: 1px solid rgba(59,130,246,0.2); color: var(--text2); }
+  .note-warn { background: rgba(245,158,11,0.08); border: 1px solid rgba(245,158,11,0.2); color: var(--text2); }
+  .note-success { background: rgba(16,185,129,0.08); border: 1px solid rgba(16,185,129,0.2); color: var(--text2); }
+
+  .note-icon { font-size: 16px; flex-shrink: 0; margin-top: 1px; }
+
+  /* ENV TABLE */
+  .env-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+  }
+
+  .env-table th {
+    background: var(--bg3);
+    color: var(--text3);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    padding: 10px 16px;
+    text-align: left;
+    border: 1px solid var(--border);
+  }
+
+  .env-table td {
+    padding: 11px 16px;
+    border: 1px solid var(--border);
+  }
+
+  .env-key {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    color: var(--accent2);
+  }
+
+  /* DIVIDER */
+  .divider {
+    border: none;
+    border-top: 1px solid var(--border);
+    margin: 48px 0;
+  }
+
+  /* SCROLLBAR */
+  ::-webkit-scrollbar { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-track { background: var(--bg); }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+  ::-webkit-scrollbar-thumb:hover { background: var(--text3); }
+
+  @media (max-width: 768px) {
+    .sidebar { display: none; }
+    .main { padding: 28px 20px; }
+    .hero-title { font-size: 28px; }
+    .flow { gap: 8px; }
+    .flow-arrow { display: none; }
+  }
+</style>
+</head>
+<body>
+
+<div class="layout">
+
+<!-- SIDEBAR -->
+<nav class="sidebar">
+  <div class="sidebar-logo">
+    <div class="logo-title">CSC-Adapter</div>
+    <div class="logo-sub">NestJS · TypeScript</div>
+    <div class="version-badge">v1.0</div>
+  </div>
+
+  <div class="nav-section">
+    <div class="nav-label">Tổng quan</div>
+    <a href="#overview" class="nav-item active">🗺️ Kiến trúc hệ thống</a>
+    <a href="#standard-msg" class="nav-item">📐 IStandardMessage</a>
+    <a href="#env" class="nav-item">⚙️ Cấu hình .env</a>
+  </div>
+
+  <div class="nav-section">
+    <div class="nav-label">Chat Hub API</div>
+    <a href="#hub-send" class="nav-item">
+      POST /chat/send
+      <span class="nav-badge badge-post">POST</span>
+    </a>
+    <a href="#hub-adapters" class="nav-item">
+      GET /chat/adapters
+      <span class="nav-badge badge-get">GET</span>
+    </a>
+  </div>
+
+  <div class="nav-section">
+    <div class="nav-label">Telegram API</div>
+    <a href="#tg-botinfo" class="nav-item">
+      GET /telegram/bot-info
+      <span class="nav-badge badge-get">GET</span>
+    </a>
+    <a href="#tg-send" class="nav-item">
+      POST /telegram/send
+      <span class="nav-badge badge-post">POST</span>
+    </a>
+    <a href="#tg-photo" class="nav-item">
+      POST /telegram/send-photo
+      <span class="nav-badge badge-post">POST</span>
+    </a>
+  </div>
+
+  <div class="nav-section">
+    <div class="nav-label">LiveChat API</div>
+    <a href="#lc-test" class="nav-item">
+      GET /livechat/test
+      <span class="nav-badge badge-get">GET</span>
+    </a>
+    <a href="#lc-chats" class="nav-item">
+      Chats Management
+      <span class="nav-badge badge-get">GET</span>
+    </a>
+    <a href="#lc-messages" class="nav-item">
+      Messages
+      <span class="nav-badge badge-post">POST</span>
+    </a>
+    <a href="#lc-customers" class="nav-item">
+      Customers
+      <span class="nav-badge badge-get">GET</span>
+    </a>
+    <a href="#lc-agents" class="nav-item">
+      Agents & Status
+      <span class="nav-badge badge-get">GET</span>
+    </a>
+    <a href="#lc-webhooks" class="nav-item">
+      Webhooks
+      <span class="nav-badge badge-post">POST</span>
+    </a>
+    <a href="#lc-tags" class="nav-item">
+      Tags & Groups
+      <span class="nav-badge badge-get">GET</span>
+    </a>
+  </div>
+
+  <div class="nav-section">
+    <div class="nav-label">WebSocket Gateway</div>
+    <a href="#ws-gateway" class="nav-item">
+      /livechat (namespace)
+      <span class="nav-badge badge-ws">WS</span>
+    </a>
+  </div>
+</nav>
+
+<!-- MAIN -->
+<main class="main">
+
+  <!-- HERO -->
+  <div class="hero" id="top">
+    <div class="hero-tag">📦 API Documentation</div>
+    <h1 class="hero-title">CSC-Adapter<br>Reference Guide</h1>
+    <p class="hero-desc">
+      Hệ thống <strong>Omnichannel Adapter</strong> — cầu nối thông minh giữa <strong>Telegram Bot</strong>
+      và <strong>LiveChat</strong>, cho phép khách hàng chat từ Telegram được phục vụ bởi nhân viên CSKH
+      qua LiveChat theo thời gian thực.
+    </p>
+    <div class="hero-meta">
+      <div class="meta-chip"><div class="dot" style="background:#3b82f6"></div> NestJS v10</div>
+      <div class="meta-chip"><div class="dot" style="background:#06b6d4"></div> TypeScript</div>
+      <div class="meta-chip"><div class="dot" style="background:#8b5cf6"></div> Socket.io</div>
+      <div class="meta-chip"><div class="dot" style="background:#10b981"></div> LiveChat v3.5 API</div>
+      <div class="meta-chip"><div class="dot" style="background:#f59e0b"></div> Swagger /api/docs</div>
+    </div>
+  </div>
+
+  <!-- ARCHITECTURE -->
+  <div id="overview" class="arch-box">
+    <div class="section-title">🗺️ Kiến trúc tổng thể</div>
+    <div class="section-sub">Cách 3 thành phần phối hợp với nhau</div>
+
+    <div class="flow">
+      <div class="flow-node">
+        <div class="flow-icon">📱</div>
+        <div class="flow-label">Khách hàng</div>
+        <div class="flow-sub">Telegram App</div>
+      </div>
+      <div class="flow-arrow">
+        <div class="flow-both">
+          <div style="display:flex;align-items:center;gap:4px;">
+            <div class="arrow-line"></div>
+            <span style="font-size:9px;color:var(--text3);white-space:nowrap">gửi msg</span>
+          </div>
+          <div style="display:flex;align-items:center;gap:4px;flex-direction:row-reverse;">
+            <div class="arrow-line" style="transform:scaleX(-1)"></div>
+            <span style="font-size:9px;color:var(--text3);white-space:nowrap">nhận reply</span>
+          </div>
+        </div>
+      </div>
+      <div class="flow-node" style="border-color:var(--accent1)">
+        <div class="flow-icon">🤖</div>
+        <div class="flow-label">Telegram Adapter</div>
+        <div class="flow-sub">telegraf bot</div>
+      </div>
+      <div class="flow-arrow">
+        <div class="arrow-line"></div>
+        <div class="arrow-label">IStandardMessage</div>
+      </div>
+      <div class="flow-node hub">
+        <div class="flow-icon">🔀</div>
+        <div class="flow-label">Chat Hub</div>
+        <div class="flow-sub">routing engine</div>
+      </div>
+      <div class="flow-arrow">
+        <div class="arrow-line"></div>
+        <div class="arrow-label">IStandardMessage</div>
+      </div>
+      <div class="flow-node" style="border-color:var(--get)">
+        <div class="flow-icon">💬</div>
+        <div class="flow-label">LiveChat Adapter</div>
+        <div class="flow-sub">websocket + rest</div>
+      </div>
+      <div class="flow-arrow">
+        <div class="flow-both">
+          <div style="display:flex;align-items:center;gap:4px;">
+            <div class="arrow-line" style="background:linear-gradient(90deg,var(--get),var(--accent4))"></div>
+            <span style="font-size:9px;color:var(--text3)">xem chat</span>
+          </div>
+          <div style="display:flex;align-items:center;gap:4px;flex-direction:row-reverse;">
+            <div class="arrow-line" style="background:linear-gradient(90deg,var(--get),var(--accent4));transform:scaleX(-1)"></div>
+            <span style="font-size:9px;color:var(--text3)">reply</span>
+          </div>
+        </div>
+      </div>
+      <div class="flow-node" style="border-color:var(--get)">
+        <div class="flow-icon">🧑‍💼</div>
+        <div class="flow-label">Nhân viên CSKH</div>
+        <div class="flow-sub">LiveChat Dashboard</div>
+      </div>
+    </div>
+
+    <div class="note-box note-info">
+      <div class="note-icon">💡</div>
+      <div>
+        <strong>Quy tắc định tuyến của Chat Hub:</strong><br>
+        <code style="font-family:'JetBrains Mono',monospace;font-size:12px;">TELEGRAM → LIVECHAT</code>: Khách chat qua Telegram → Nhân viên nhìn thấy trên LiveChat Dashboard (qua WebSocket)<br>
+        <code style="font-family:'JetBrains Mono',monospace;font-size:12px;">LIVECHAT → TELEGRAM</code>: Nhân viên trả lời → Tin nhắn được push về Telegram Bot cho khách
+      </div>
+    </div>
+  </div>
+
+  <!-- STANDARD MESSAGE INTERFACE -->
+  <div id="standard-msg" class="arch-box">
+    <div class="section-title">📐 IStandardMessage — Interface cốt lõi</div>
+    <div class="section-sub">Định dạng tin nhắn chung dùng xuyên suốt toàn hệ thống</div>
+
+    <p style="font-size:14px;color:var(--text2);margin-bottom:20px;">
+      Mọi tin nhắn từ bất kỳ nền tảng nào (Telegram, LiveChat...) đều được <strong>chuẩn hóa</strong>
+      về dạng <code style="font-family:'JetBrains Mono',monospace;color:var(--accent3)">IStandardMessage</code>
+      trước khi đưa vào Chat Hub xử lý. Đây là "ngôn ngữ chung" giúp các adapter giao tiếp được với nhau.
+    </p>
+
+    <table class="params-table">
+      <thead>
+        <tr>
+          <th>Trường</th>
+          <th>Kiểu</th>
+          <th>Bắt buộc</th>
+          <th>Mô tả</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><span class="param-name">platform</span></td>
+          <td><span class="param-type">Platform enum</span></td>
+          <td><span class="param-req req-yes">YES</span></td>
+          <td class="param-desc">Nền tảng gốc: <code>TELEGRAM</code> hoặc <code>LIVECHAT</code></td>
+        </tr>
+        <tr>
+          <td><span class="param-name">platformThreadId</span></td>
+          <td><span class="param-type">string</span></td>
+          <td><span class="param-req req-yes">YES</span></td>
+          <td class="param-desc">ID cuộc hội thoại trên nền tảng gốc (Telegram: chatId, LiveChat: chatId)</td>
+        </tr>
+        <tr>
+          <td><span class="param-name">platformMessageId</span></td>
+          <td><span class="param-type">string</span></td>
+          <td><span class="param-req req-yes">YES</span></td>
+          <td class="param-desc">ID tin nhắn trên nền tảng gốc</td>
+        </tr>
+        <tr>
+          <td><span class="param-name">senderType</span></td>
+          <td><span class="param-type">SenderType enum</span></td>
+          <td><span class="param-req req-yes">YES</span></td>
+          <td class="param-desc"><code>USER</code> = khách hàng, <code>AGENT</code> = nhân viên, <code>SYSTEM</code> = hệ thống</td>
+        </tr>
+        <tr>
+          <td><span class="param-name">senderName</span></td>
+          <td><span class="param-type">string</span></td>
+          <td><span class="param-req req-yes">YES</span></td>
+          <td class="param-desc">Tên hiển thị của người gửi</td>
+        </tr>
+        <tr>
+          <td><span class="param-name">senderId</span></td>
+          <td><span class="param-type">string?</span></td>
+          <td><span class="param-req req-no">OPT</span></td>
+          <td class="param-desc">ID người gửi trên nền tảng gốc</td>
+        </tr>
+        <tr>
+          <td><span class="param-name">messageType</span></td>
+          <td><span class="param-type">MessageType enum</span></td>
+          <td><span class="param-req req-yes">YES</span></td>
+          <td class="param-desc"><code>TEXT</code> / <code>IMAGE</code> / <code>FILE</code> / <code>STICKER</code> / <code>LOCATION</code> / <code>CONTACT</code> / <code>SYSTEM_EVENT</code></td>
+        </tr>
+        <tr>
+          <td><span class="param-name">text</span></td>
+          <td><span class="param-type">string?</span></td>
+          <td><span class="param-req req-no">OPT</span></td>
+          <td class="param-desc">Nội dung văn bản (có với TEXT, caption với IMAGE/FILE)</td>
+        </tr>
+        <tr>
+          <td><span class="param-name">mediaUrl</span></td>
+          <td><span class="param-type">string?</span></td>
+          <td><span class="param-req req-no">OPT</span></td>
+          <td class="param-desc">URL file hoặc ảnh đính kèm</td>
+        </tr>
+        <tr>
+          <td><span class="param-name">metadata</span></td>
+          <td><span class="param-type">Record&lt;string, any&gt;?</span></td>
+          <td><span class="param-req req-no">OPT</span></td>
+          <td class="param-desc">Dữ liệu bổ sung tùy nền tảng (width/height ảnh, fileName, latitude...)</td>
+        </tr>
+        <tr>
+          <td><span class="param-name">timestamp</span></td>
+          <td><span class="param-type">Date</span></td>
+          <td><span class="param-req req-yes">YES</span></td>
+          <td class="param-desc">Thời điểm gửi tin nhắn</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- ENV CONFIG -->
+  <div id="env" class="arch-box">
+    <div class="section-title">⚙️ Cấu hình môi trường (.env)</div>
+    <div class="section-sub">Các biến cần thiết để chạy ứng dụng</div>
+    <table class="env-table">
+      <thead>
+        <tr>
+          <th>Biến</th>
+          <th>Ví dụ</th>
+          <th>Mô tả</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><span class="env-key">PORT</span></td>
+          <td style="font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--text2)">3000</td>
+          <td style="font-size:13px;color:var(--text2)">Port server lắng nghe</td>
+        </tr>
+        <tr>
+          <td><span class="env-key">TELEGRAM_BOT_TOKEN</span></td>
+          <td style="font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--text2)">1234567890:AAF...</td>
+          <td style="font-size:13px;color:var(--text2)">Token bot từ @BotFather trên Telegram</td>
+        </tr>
+        <tr>
+          <td><span class="env-key">LIVECHAT_ACCOUNT_ID</span></td>
+          <td style="font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--text2)">abc-123...</td>
+          <td style="font-size:13px;color:var(--text2)">Account ID LiveChat (dạng UUID)</td>
+        </tr>
+        <tr>
+          <td><span class="env-key">LIVECHAT_ENTITY_ID</span></td>
+          <td style="font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--text2)">agent@email.com</td>
+          <td style="font-size:13px;color:var(--text2)">Email agent dùng để xác thực</td>
+        </tr>
+        <tr>
+          <td><span class="env-key">LIVECHAT_TOKEN</span></td>
+          <td style="font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--text2)">your_pat_token</td>
+          <td style="font-size:13px;color:var(--text2)">Personal Access Token của LiveChat</td>
+        </tr>
+        <tr>
+          <td><span class="env-key">LIVECHAT_BASE64_TOKEN</span></td>
+          <td style="font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--text2)">YWdlbnQ6dG9rZW4=</td>
+          <td style="font-size:13px;color:var(--text2)">Base64 của <code>"entityId:token"</code> — dùng cho Basic Auth header</td>
+        </tr>
+      </tbody>
+    </table>
+    <div class="note-box note-warn" style="margin-top:16px">
+      <div class="note-icon">⚠️</div>
+      <div>
+        <strong>Cách tạo LIVECHAT_BASE64_TOKEN:</strong><br>
+        <code style="font-family:'JetBrains Mono',monospace;font-size:12px;">btoa("agent@email.com:your_pat_token")</code> → Paste kết quả vào đây.<br>
+        Header được gửi là: <code style="font-family:'JetBrains Mono',monospace;font-size:12px;">Authorization: Basic &lt;base64_token&gt;</code>
+      </div>
+    </div>
+  </div>
+
+  <hr class="divider">
+
+  <!-- ============ CHAT HUB ============ -->
+  <div class="section-header" id="hub-send">
+    <div class="section-icon icon-hub">🔀</div>
+    <div class="section-header-text">
+      <h2>Chat Hub API</h2>
+      <p>Điều phối tin nhắn và quản lý adapter — <code style="font-family:'JetBrains Mono',monospace">/chat/*</code></p>
+    </div>
+  </div>
+
+  <!-- POST /chat/send -->
+  <div class="api-card open">
+    <div class="api-header" onclick="toggleCard(this)">
+      <span class="method-badge method-post">POST</span>
+      <span class="api-path">/chat/send</span>
+      <span class="api-title">Gửi tin nhắn đến khách hàng qua API</span>
+      <span class="api-toggle">▼</span>
+    </div>
+    <div class="api-body">
+      <p class="api-desc">
+        Gửi tin nhắn trực tiếp đến một khách hàng cụ thể trên bất kỳ nền tảng nào (Telegram hoặc LiveChat)
+        mà không cần qua luồng routing tự động. Thường dùng để hệ thống CRM hoặc backend tự động push thông báo
+        (ví dụ: "Đơn hàng #123 đã được giao thành công!").
+      </p>
+
+      <div class="flow-mini">
+        <div class="flow-step"><div class="step-num">1</div> Nhận DTO từ request body</div>
+        <div class="flow-sep">→</div>
+        <div class="flow-step"><div class="step-num">2</div> Lấy adapter theo <code>platform</code></div>
+        <div class="flow-sep">→</div>
+        <div class="flow-step"><div class="step-num">3</div> Tạo IStandardMessage với senderType = AGENT</div>
+        <div class="flow-sep">→</div>
+        <div class="flow-step"><div class="step-num">4</div> Gọi <code>adapter.sendMessage()</code></div>
+        <div class="flow-sep">→</div>
+        <div class="flow-step"><div class="step-num">5</div> Trả về <code>&#123; success, message &#125;</code></div>
+      </div>
+
+      <div class="params-title">Request Body (JSON)</div>
+      <table class="params-table">
+        <thead><tr><th>Tham số</th><th>Kiểu</th><th>Bắt buộc</th><th>Mô tả & Ví dụ</th></tr></thead>
+        <tbody>
+          <tr>
+            <td><span class="param-name">platform</span></td>
+            <td><span class="param-type">"TELEGRAM" | "LIVECHAT"</span></td>
+            <td><span class="param-req req-yes">YES</span></td>
+            <td class="param-desc">Nền tảng đích cần gửi tin. <code>"TELEGRAM"</code> sẽ gửi qua Telegram Bot, <code>"LIVECHAT"</code> push qua WebSocket đến Dashboard nhân viên</td>
+          </tr>
+          <tr>
+            <td><span class="param-name">threadId</span></td>
+            <td><span class="param-type">string</span></td>
+            <td><span class="param-req req-yes">YES</span></td>
+            <td class="param-desc">ID cuộc hội thoại. Với Telegram: là Chat ID (số nguyên dạng chuỗi, VD: <code>"123456789"</code>). Với LiveChat: là chat_id</td>
+          </tr>
+          <tr>
+            <td><span class="param-name">text</span></td>
+            <td><span class="param-type">string</span></td>
+            <td><span class="param-req req-yes">YES</span></td>
+            <td class="param-desc">Nội dung tin nhắn. VD: <code>"Đơn hàng của bạn đã được giao thành công!"</code></td>
+          </tr>
+          <tr>
+            <td><span class="param-name">senderName</span></td>
+            <td><span class="param-type">string?</span></td>
+            <td><span class="param-req req-no">OPT</span></td>
+            <td class="param-desc">Tên hiển thị người gửi. Mặc định: <code>"System API"</code>. Hiển thị dạng: <code>💬 [Hệ thống CRM]: Nội dung...</code></td>
+          </tr>
+          <tr>
+            <td><span class="param-name">messageType</span></td>
+            <td><span class="param-type">"TEXT" | "IMAGE" | "FILE"</span></td>
+            <td><span class="param-req req-no">OPT</span></td>
+            <td class="param-desc">Loại tin nhắn. Mặc định: <code>"TEXT"</code></td>
+          </tr>
+          <tr>
+            <td><span class="param-name">mediaUrl</span></td>
+            <td><span class="param-type">string?</span></td>
+            <td><span class="param-req req-no">OPT</span></td>
+            <td class="param-desc">URL ảnh/file nếu messageType là IMAGE hoặc FILE</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <div class="params-title">Ví dụ Request</div>
+      <div class="code-wrap">
+        <div class="code-header">
+          <span class="code-lang">JSON — POST /chat/send</span>
+          <button class="code-copy" onclick="copyCode(this)">copy</button>
+        </div>
+        <pre>{
+  <span class="tok-prop">"platform"</span>: <span class="tok-str">"TELEGRAM"</span>,
+  <span class="tok-prop">"threadId"</span>: <span class="tok-str">"123456789"</span>,       <span class="tok-cmt">// Telegram Chat ID của khách</span>
+  <span class="tok-prop">"text"</span>: <span class="tok-str">"Đơn hàng #ORD-001 đã được giao thành công!"</span>,
+  <span class="tok-prop">"senderName"</span>: <span class="tok-str">"Hệ thống CRM"</span>,
+  <span class="tok-prop">"messageType"</span>: <span class="tok-str">"TEXT"</span>
+}</pre>
+      </div>
+
+      <div class="params-title">Response</div>
+      <div class="response-row">
+        <span class="status-code status-2xx">201</span>
+        <span class="response-desc">Thành công</span>
+      </div>
+      <div class="code-wrap">
+        <div class="code-header"><span class="code-lang">JSON — Response 201</span></div>
+        <pre>{
+  <span class="tok-prop">"success"</span>: <span class="tok-bool">true</span>,
+  <span class="tok-prop">"message"</span>: <span class="tok-str">"Đã gửi tin nhắn"</span>
+}</pre>
+      </div>
+      <div class="response-row">
+        <span class="status-code status-4xx">400</span>
+        <span class="response-desc">Lỗi validation DTO (thiếu trường bắt buộc, sai kiểu dữ liệu)</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- GET /chat/adapters -->
+  <div class="api-card" id="hub-adapters">
+    <div class="api-header" onclick="toggleCard(this)">
+      <span class="method-badge method-get">GET</span>
+      <span class="api-path">/chat/adapters</span>
+      <span class="api-title">Xem danh sách adapter đã đăng ký</span>
+      <span class="api-toggle">▼</span>
+    </div>
+    <div class="api-body">
+      <p class="api-desc">
+        Kiểm tra xem những adapter nào đã sẵn sàng hoạt động. Khi ứng dụng khởi động,
+        TelegramService và LivechatGateway tự động đăng ký với ChatHubService.
+      </p>
+      <div class="params-title">Response</div>
+      <div class="code-wrap">
+        <div class="code-header"><span class="code-lang">JSON — Response 200</span></div>
+        <pre>{
+  <span class="tok-prop">"adapters"</span>: [<span class="tok-str">"TELEGRAM"</span>, <span class="tok-str">"LIVECHAT"</span>]
+}</pre>
+      </div>
+    </div>
+  </div>
+
+  <hr class="divider">
+
+  <!-- ============ TELEGRAM ============ -->
+  <div class="section-header">
+    <div class="section-icon icon-tg">🤖</div>
+    <div class="section-header-text">
+      <h2>Telegram API</h2>
+      <p>Quản lý Telegram Bot — <code style="font-family:'JetBrains Mono',monospace">/telegram/*</code></p>
+    </div>
+  </div>
+
+  <div class="note-box note-info">
+    <div class="note-icon">ℹ️</div>
+    <div>
+      Telegram Bot sử dụng <strong>Long Polling</strong> (tự kết nối đến server Telegram) — không cần cấu hình webhook.
+      Bot tự động xử lý: <code>/start</code>, <code>/help</code>, <code>/info</code>, tin nhắn text, ảnh, file, sticker, location, contact.
+    </div>
+  </div>
+
+  <!-- GET /telegram/bot-info -->
+  <div class="api-card" id="tg-botinfo">
+    <div class="api-header" onclick="toggleCard(this)">
+      <span class="method-badge method-get">GET</span>
+      <span class="api-path">/telegram/bot-info</span>
+      <span class="api-title">Xem thông tin Bot</span>
+      <span class="api-toggle">▼</span>
+    </div>
+    <div class="api-body">
+      <p class="api-desc">Gọi <code>getMe()</code> của Telegram API để lấy thông tin bot đang chạy. Dùng để xác nhận bot đã kết nối thành công với token đã cấu hình.</p>
+      <div class="params-title">Response</div>
+      <div class="code-wrap">
+        <div class="code-header"><span class="code-lang">JSON — Response 200</span></div>
+        <pre>{
+  <span class="tok-prop">"success"</span>: <span class="tok-bool">true</span>,
+  <span class="tok-prop">"data"</span>: {
+    <span class="tok-prop">"id"</span>: <span class="tok-num">7491234567</span>,
+    <span class="tok-prop">"is_bot"</span>: <span class="tok-bool">true</span>,
+    <span class="tok-prop">"first_name"</span>: <span class="tok-str">"CSKH Support Bot"</span>,
+    <span class="tok-prop">"username"</span>: <span class="tok-str">"cskh_support_bot"</span>,
+    <span class="tok-prop">"can_join_groups"</span>: <span class="tok-bool">true</span>,
+    <span class="tok-prop">"can_read_all_group_messages"</span>: <span class="tok-bool">false</span>,
+    <span class="tok-prop">"supports_inline_queries"</span>: <span class="tok-bool">false</span>
+  }
+}</pre>
+      </div>
+    </div>
+  </div>
+
+  <!-- POST /telegram/send -->
+  <div class="api-card" id="tg-send">
+    <div class="api-header" onclick="toggleCard(this)">
+      <span class="method-badge method-post">POST</span>
+      <span class="api-path">/telegram/send</span>
+      <span class="api-title">Gửi tin nhắn text trực tiếp</span>
+      <span class="api-toggle">▼</span>
+    </div>
+    <div class="api-body">
+      <p class="api-desc">Gửi tin nhắn text thẳng đến một Chat ID Telegram, <strong>bỏ qua Chat Hub</strong>. Dùng cho testing, thông báo hệ thống đơn giản. Khác với <code>/chat/send</code> — endpoint này không tạo IStandardMessage, gọi thẳng Telegram Bot API.</p>
+      <div class="params-title">Request Body</div>
+      <table class="params-table">
+        <thead><tr><th>Tham số</th><th>Kiểu</th><th>Bắt buộc</th><th>Mô tả</th></tr></thead>
+        <tbody>
+          <tr>
+            <td><span class="param-name">chatId</span></td>
+            <td><span class="param-type">string</span></td>
+            <td><span class="param-req req-yes">YES</span></td>
+            <td class="param-desc">Chat ID Telegram của người nhận. Lấy bằng cách dùng lệnh <code>/info</code> trong bot</td>
+          </tr>
+          <tr>
+            <td><span class="param-name">text</span></td>
+            <td><span class="param-type">string</span></td>
+            <td><span class="param-req req-yes">YES</span></td>
+            <td class="param-desc">Nội dung tin nhắn text cần gửi</td>
+          </tr>
+        </tbody>
+      </table>
+      <div class="params-title">Ví dụ Request</div>
+      <div class="code-wrap">
+        <div class="code-header"><span class="code-lang">JSON</span><button class="code-copy" onclick="copyCode(this)">copy</button></div>
+        <pre>{
+  <span class="tok-prop">"chatId"</span>: <span class="tok-str">"123456789"</span>,
+  <span class="tok-prop">"text"</span>: <span class="tok-str">"Xin chào! Đây là thông báo từ hệ thống."</span>
+}</pre>
+      </div>
+      <div class="params-title">Response</div>
+      <div class="code-wrap">
+        <div class="code-header"><span class="code-lang">JSON — Response 201</span></div>
+        <pre>{
+  <span class="tok-prop">"success"</span>: <span class="tok-bool">true</span>,
+  <span class="tok-prop">"message"</span>: <span class="tok-str">"Đã gửi tin nhắn"</span>
+}</pre>
+      </div>
+    </div>
+  </div>
+
+  <!-- POST /telegram/send-photo -->
+  <div class="api-card" id="tg-photo">
+    <div class="api-header" onclick="toggleCard(this)">
+      <span class="method-badge method-post">POST</span>
+      <span class="api-path">/telegram/send-photo</span>
+      <span class="api-title">Gửi ảnh trực tiếp</span>
+      <span class="api-toggle">▼</span>
+    </div>
+    <div class="api-body">
+      <p class="api-desc">Gửi ảnh (có thể kèm caption) trực tiếp đến một Chat ID Telegram, bỏ qua Chat Hub. Ảnh phải là URL công khai truy cập được.</p>
+      <div class="params-title">Request Body</div>
+      <table class="params-table">
+        <thead><tr><th>Tham số</th><th>Kiểu</th><th>Bắt buộc</th><th>Mô tả</th></tr></thead>
+        <tbody>
+          <tr>
+            <td><span class="param-name">chatId</span></td>
+            <td><span class="param-type">string</span></td>
+            <td><span class="param-req req-yes">YES</span></td>
+            <td class="param-desc">Chat ID Telegram người nhận</td>
+          </tr>
+          <tr>
+            <td><span class="param-name">photoUrl</span></td>
+            <td><span class="param-type">string</span></td>
+            <td><span class="param-req req-yes">YES</span></td>
+            <td class="param-desc">URL ảnh công khai. VD: <code>"https://example.com/product.jpg"</code></td>
+          </tr>
+          <tr>
+            <td><span class="param-name">caption</span></td>
+            <td><span class="param-type">string?</span></td>
+            <td><span class="param-req req-no">OPT</span></td>
+            <td class="param-desc">Chú thích dưới ảnh</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- TELEGRAM BOT COMMANDS -->
+  <div class="arch-box" style="margin-top:24px">
+    <div class="section-title">🤖 Telegram Bot — Lệnh & Sự kiện tự động xử lý</div>
+    <div class="section-sub">Bot lắng nghe và xử lý các loại tin nhắn sau từ khách hàng</div>
+    <table class="params-table">
+      <thead><tr><th>Loại</th><th>Trigger</th><th>Hành động</th><th>IStandardMessage.messageType</th></tr></thead>
+      <tbody>
+        <tr>
+          <td style="color:var(--text2)">/start</td>
+          <td style="font-size:12px;color:var(--text3)">Lần đầu dùng bot</td>
+          <td style="font-size:13px;color:var(--text2)">Gửi tin nhắn chào mừng, hướng dẫn. <strong>Không</strong> route đến Hub</td>
+          <td>—</td>
+        </tr>
+        <tr>
+          <td style="color:var(--text2)">/help</td>
+          <td style="font-size:12px;color:var(--text3)">Khách gõ /help</td>
+          <td style="font-size:13px;color:var(--text2)">Gửi hướng dẫn sử dụng</td>
+          <td>—</td>
+        </tr>
+        <tr>
+          <td style="color:var(--text2)">/info</td>
+          <td style="font-size:12px;color:var(--text3)">Khách gõ /info</td>
+          <td style="font-size:13px;color:var(--text2)">Hiển thị User ID, Chat ID — <strong>quan trọng để lấy chatId</strong></td>
+          <td>—</td>
+        </tr>
+        <tr>
+          <td style="color:var(--accent2)">text</td>
+          <td style="font-size:12px;color:var(--text3)">Tin nhắn văn bản</td>
+          <td style="font-size:13px;color:var(--text2)">Parse → Route đến Hub → Forward đến LiveChat agents</td>
+          <td><span class="param-type">TEXT</span></td>
+        </tr>
+        <tr>
+          <td style="color:var(--accent2)">photo</td>
+          <td style="font-size:12px;color:var(--text3)">Gửi ảnh</td>
+          <td style="font-size:13px;color:var(--text2)">Lấy ảnh resolution cao nhất, lấy fileLink → Route đến Hub</td>
+          <td><span class="param-type">IMAGE</span></td>
+        </tr>
+        <tr>
+          <td style="color:var(--accent2)">document</td>
+          <td style="font-size:12px;color:var(--text3)">Gửi file</td>
+          <td style="font-size:13px;color:var(--text2)">Lấy fileLink, fileName, mimeType → Route đến Hub</td>
+          <td><span class="param-type">FILE</span></td>
+        </tr>
+        <tr>
+          <td style="color:var(--accent2)">sticker</td>
+          <td style="font-size:12px;color:var(--text3)">Gửi sticker</td>
+          <td style="font-size:13px;color:var(--text2)">Lưu emoji + setName vào metadata → Route đến Hub</td>
+          <td><span class="param-type">STICKER</span></td>
+        </tr>
+        <tr>
+          <td style="color:var(--accent2)">location</td>
+          <td style="font-size:12px;color:var(--text3)">Chia sẻ vị trí</td>
+          <td style="font-size:13px;color:var(--text2)">Lưu lat/lng vào metadata, text = "📍 Vị trí: lat, lng"</td>
+          <td><span class="param-type">LOCATION</span></td>
+        </tr>
+        <tr>
+          <td style="color:var(--accent2)">contact</td>
+          <td style="font-size:12px;color:var(--text3)">Chia sẻ liên hệ</td>
+          <td style="font-size:13px;color:var(--text2)">Lưu phone, firstName, lastName → Route đến Hub</td>
+          <td><span class="param-type">CONTACT</span></td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <hr class="divider">
+
+  <!-- ============ LIVECHAT ============ -->
+  <div class="section-header">
+    <div class="section-icon icon-lc">💬</div>
+    <div class="section-header-text">
+      <h2>LiveChat API</h2>
+      <p>Toàn bộ tích hợp LiveChat Agent API v3.5 — <code style="font-family:'JetBrains Mono',monospace">/livechat/*</code></p>
+    </div>
+  </div>
+
+  <div class="note-box note-info">
+    <div class="note-icon">ℹ️</div>
+    <div>
+      Tất cả các API LiveChat đều gọi đến <code style="font-family:'JetBrains Mono',monospace">https://api.livechatinc.com/v3.5/agent/action/{action}</code>
+      bằng <strong>HTTP POST</strong> với header <code>Authorization: Basic {base64_token}</code>.
+      Method đều là POST — kể cả khi "lấy danh sách".
+    </div>
+  </div>
+
+  <!-- GET /livechat/test -->
+  <div class="api-card" id="lc-test">
+    <div class="api-header" onclick="toggleCard(this)">
+      <span class="method-badge method-get">GET</span>
+      <span class="api-path">/livechat/test</span>
+      <span class="api-title">Kiểm tra kết nối LiveChat</span>
+      <span class="api-toggle">▼</span>
+    </div>
+    <div class="api-body">
+      <p class="api-desc">Thử gọi <code>list_chats</code> để kiểm tra token và kết nối đến LiveChat API có hoạt động không. Là bước đầu tiên nên chạy sau khi cấu hình .env.</p>
+      <div class="params-title">Response thành công</div>
+      <div class="code-wrap">
+        <div class="code-header"><span class="code-lang">JSON — 200 OK</span></div>
+        <pre>{
+  <span class="tok-prop">"success"</span>: <span class="tok-bool">true</span>,
+  <span class="tok-prop">"message"</span>: <span class="tok-str">"Kết nối LiveChat thành công!"</span>,
+  <span class="tok-prop">"data"</span>: { ... }  <span class="tok-cmt">// Dữ liệu chats trả về từ LiveChat API</span>
+}</pre>
+      </div>
+      <div class="params-title">Response thất bại</div>
+      <div class="code-wrap">
+        <div class="code-header"><span class="code-lang">JSON — 200 (success: false)</span></div>
+        <pre>{
+  <span class="tok-prop">"success"</span>: <span class="tok-bool">false</span>,
+  <span class="tok-prop">"message"</span>: <span class="tok-str">"Lỗi: Authentication failed"</span>
+}</pre>
+      </div>
+    </div>
+  </div>
+
+  <!-- CHATS SECTION -->
+  <div style="margin:24px 0 12px" id="lc-chats">
+    <div style="font-family:'Syne',sans-serif;font-size:16px;font-weight:700;color:var(--text2);padding-bottom:10px;border-bottom:1px solid var(--border)">
+      💬 Quản lý Chats
+    </div>
+  </div>
+
+  <!-- GET /livechat/chats -->
+  <div class="api-card">
+    <div class="api-header" onclick="toggleCard(this)">
+      <span class="method-badge method-get">GET</span>
+      <span class="api-path">/livechat/chats</span>
+      <span class="api-title">Danh sách chats đang hoạt động</span>
+      <span class="api-toggle">▼</span>
+    </div>
+    <div class="api-body">
+      <p class="api-desc">Lấy danh sách tất cả các cuộc chat đang diễn ra (active) mà agent đang follow. Gọi LiveChat action <code>list_chats</code>.</p>
+      <div class="params-title">Response (cấu trúc từ LiveChat API)</div>
+      <div class="code-wrap">
+        <div class="code-header"><span class="code-lang">JSON — Response mẫu</span></div>
+        <pre>{
+  <span class="tok-prop">"chats_summary"</span>: [
+    {
+      <span class="tok-prop">"id"</span>: <span class="tok-str">"PJ0MRSHTDG"</span>,        <span class="tok-cmt">// chat_id dùng cho các API khác</span>
+      <span class="tok-prop">"users"</span>: [...],
+      <span class="tok-prop">"last_thread_summary"</span>: { ... },
+      <span class="tok-prop">"properties"</span>: { ... }
+    }
+  ],
+  <span class="tok-prop">"total_chats"</span>: <span class="tok-num">5</span>
+}</pre>
+      </div>
+    </div>
+  </div>
+
+  <!-- GET /livechat/chat/:chatId -->
+  <div class="api-card">
+    <div class="api-header" onclick="toggleCard(this)">
+      <span class="method-badge method-get">GET</span>
+      <span class="api-path">/livechat/chat/:chatId</span>
+      <span class="api-title">Chi tiết một chat</span>
+      <span class="api-toggle">▼</span>
+    </div>
+    <div class="api-body">
+      <p class="api-desc">Lấy đầy đủ thông tin của một cuộc chat: toàn bộ thread, tin nhắn, users, properties. Gọi LiveChat action <code>get_chat</code>.</p>
+      <div class="params-title">URL Params</div>
+      <table class="params-table">
+        <thead><tr><th>Tham số</th><th>Kiểu</th><th>Mô tả</th></tr></thead>
+        <tbody>
+          <tr>
+            <td><span class="param-name">chatId</span></td>
+            <td><span class="param-type">string</span></td>
+            <td class="param-desc">Chat ID lấy từ <code>list_chats</code>. VD: <code>PJ0MRSHTDG</code></td>
+          </tr>
+        </tbody>
+      </table>
+      <div class="params-title">Ví dụ Request</div>
+      <div class="code-wrap">
+        <div class="code-header"><span class="code-lang">HTTP</span></div>
+        <pre>GET /livechat/chat/PJ0MRSHTDG</pre>
+      </div>
+    </div>
+  </div>
+
+  <!-- GET archives -->
+  <div class="api-card">
+    <div class="api-header" onclick="toggleCard(this)">
+      <span class="method-badge method-get">GET</span>
+      <span class="api-path">/livechat/archives</span>
+      <span class="api-title">Lịch sử chats (archives)</span>
+      <span class="api-toggle">▼</span>
+    </div>
+    <div class="api-body">
+      <p class="api-desc">Lấy các cuộc chat đã kết thúc (closed/deactivated). Gọi LiveChat action <code>list_archives</code>. Dùng để xem lịch sử, thống kê, hoặc debug.</p>
+    </div>
+  </div>
+
+  <!-- GET threads -->
+  <div class="api-card">
+    <div class="api-header" onclick="toggleCard(this)">
+      <span class="method-badge method-get">GET</span>
+      <span class="api-path">/livechat/chat/:chatId/threads</span>
+      <span class="api-title">Danh sách threads của chat</span>
+      <span class="api-toggle">▼</span>
+    </div>
+    <div class="api-body">
+      <p class="api-desc">
+        Mỗi cuộc chat có thể có nhiều <strong>threads</strong> (phiên chat). Khi chat bị deactivate rồi resume lại,
+        một thread mới được tạo. API này lấy tất cả threads của một chat.
+        Gọi LiveChat action <code>list_threads</code>.
+      </p>
+      <div class="params-title">URL Params</div>
+      <table class="params-table">
+        <thead><tr><th>Tham số</th><th>Kiểu</th><th>Mô tả</th></tr></thead>
+        <tbody>
+          <tr><td><span class="param-name">chatId</span></td><td><span class="param-type">string</span></td><td class="param-desc">ID của chat</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- POST start/resume/deactivate -->
+  <div class="api-card">
+    <div class="api-header" onclick="toggleCard(this)">
+      <span class="method-badge method-post">POST</span>
+      <span class="api-path">/livechat/chat/start</span>
+      <span class="api-title">Bắt đầu chat mới</span>
+      <span class="api-toggle">▼</span>
+    </div>
+    <div class="api-body">
+      <p class="api-desc">Tạo một cuộc chat mới. Gọi LiveChat action <code>start_chat</code>. Thường dùng khi agent muốn chủ động tạo chat với customer.</p>
+      <div class="params-title">Request Body (tùy chọn)</div>
+      <table class="params-table">
+        <thead><tr><th>Tham số</th><th>Kiểu</th><th>Bắt buộc</th><th>Mô tả</th></tr></thead>
+        <tbody>
+          <tr>
+            <td><span class="param-name">users</span></td>
+            <td><span class="param-type">any[]?</span></td>
+            <td><span class="param-req req-no">OPT</span></td>
+            <td class="param-desc">Danh sách users tham gia chat</td>
+          </tr>
+          <tr>
+            <td><span class="param-name">thread</span></td>
+            <td><span class="param-type">any?</span></td>
+            <td><span class="param-req req-no">OPT</span></td>
+            <td class="param-desc">Thông tin thread khởi tạo (events ban đầu, properties)</td>
+          </tr>
+        </tbody>
+      </table>
+      <div class="params-title">Response</div>
+      <div class="code-wrap">
+        <div class="code-header"><span class="code-lang">JSON</span></div>
+        <pre>{
+  <span class="tok-prop">"chat_id"</span>: <span class="tok-str">"PJ0MRSHTDG"</span>,   <span class="tok-cmt">// Chat ID mới tạo</span>
+  <span class="tok-prop">"thread_id"</span>: <span class="tok-str">"K600PKZON8"</span>
+}</pre>
+      </div>
+    </div>
+  </div>
+
+  <div class="api-card">
+    <div class="api-header" onclick="toggleCard(this)">
+      <span class="method-badge method-post">POST</span>
+      <span class="api-path">/livechat/chat/:chatId/resume</span>
+      <span class="api-title">Tiếp tục (resume) chat đã đóng</span>
+      <span class="api-toggle">▼</span>
+    </div>
+    <div class="api-body">
+      <p class="api-desc">Mở lại một cuộc chat đã bị deactivate. Gọi LiveChat action <code>resume_chat</code>. Tạo thread mới trong chat cũ.</p>
+      <div class="params-title">URL Params</div>
+      <table class="params-table">
+        <thead><tr><th>Tham số</th><th>Kiểu</th><th>Mô tả</th></tr></thead>
+        <tbody><tr><td><span class="param-name">chatId</span></td><td><span class="param-type">string</span></td><td class="param-desc">ID chat cần resume</td></tr></tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="api-card">
+    <div class="api-header" onclick="toggleCard(this)">
+      <span class="method-badge method-post">POST</span>
+      <span class="api-path">/livechat/chat/:chatId/deactivate</span>
+      <span class="api-title">Đóng chat</span>
+      <span class="api-toggle">▼</span>
+    </div>
+    <div class="api-body">
+      <p class="api-desc">Kết thúc cuộc chat (đóng thread hiện tại). Gọi LiveChat action <code>deactivate_chat</code>. Chat vẫn còn trong hệ thống nhưng không active nữa.</p>
+    </div>
+  </div>
+
+  <div class="api-card">
+    <div class="api-header" onclick="toggleCard(this)">
+      <span class="method-badge method-post">POST</span>
+      <span class="api-path">/livechat/chat/:chatId/follow</span>
+      <span class="api-title">Follow / Unfollow chat</span>
+      <span class="api-toggle">▼</span>
+    </div>
+    <div class="api-body">
+      <p class="api-desc">
+        <strong>Follow chat</strong> (<code>follow_chat</code>): Đăng ký nhận thông báo khi có sự kiện trong chat này. Agent phải follow mới nhận được events qua WebSocket từ LiveChat.<br><br>
+        <strong>Unfollow chat</strong> (<code>unfollow_chat</code>): Hủy nhận thông báo. URL: <code>POST /livechat/chat/:chatId/unfollow</code>
+      </p>
+    </div>
+  </div>
+
+  <!-- MESSAGES SECTION -->
+  <div style="margin:32px 0 12px" id="lc-messages">
+    <div style="font-family:'Syne',sans-serif;font-size:16px;font-weight:700;color:var(--text2);padding-bottom:10px;border-bottom:1px solid var(--border)">
+      ✉️ Gửi Tin Nhắn (Events)
+    </div>
+  </div>
+
+  <div class="note-box note-success">
+    <div class="note-icon">✅</div>
+    <div>
+      Tất cả các loại tin nhắn đều gọi LiveChat action <code>send_event</code>. Sự khác biệt chỉ nằm ở field <code>event.type</code> trong body request.
+    </div>
+  </div>
+
+  <!-- POST /livechat/send -->
+  <div class="api-card">
+    <div class="api-header" onclick="toggleCard(this)">
+      <span class="method-badge method-post">POST</span>
+      <span class="api-path">/livechat/send</span>
+      <span class="api-title">Gửi tin nhắn text</span>
+      <span class="api-toggle">▼</span>
+    </div>
+    <div class="api-body">
+      <p class="api-desc">Gửi tin nhắn văn bản đến một chat đang hoạt động. Đây là API gửi tin chính của nhân viên CSKH.</p>
+      <div class="params-title">Request Body</div>
+      <table class="params-table">
+        <thead><tr><th>Tham số</th><th>Kiểu</th><th>Bắt buộc</th><th>Mô tả</th></tr></thead>
+        <tbody>
+          <tr>
+            <td><span class="param-name">chatId</span></td>
+            <td><span class="param-type">string</span></td>
+            <td><span class="param-req req-yes">YES</span></td>
+            <td class="param-desc">ID chat đích. VD: <code>"PJ0MRSHTDG"</code></td>
+          </tr>
+          <tr>
+            <td><span class="param-name">message</span></td>
+            <td><span class="param-type">string</span></td>
+            <td><span class="param-req req-yes">YES</span></td>
+            <td class="param-desc">Nội dung tin nhắn</td>
+          </tr>
+        </tbody>
+      </table>
+      <div class="params-title">Payload gửi đến LiveChat API</div>
+      <div class="code-wrap">
+        <div class="code-header"><span class="code-lang">POST api.livechatinc.com/v3.5/agent/action/send_event</span></div>
+        <pre>{
+  <span class="tok-prop">"chat_id"</span>: <span class="tok-str">"PJ0MRSHTDG"</span>,
+  <span class="tok-prop">"event"</span>: {
+    <span class="tok-prop">"type"</span>: <span class="tok-str">"message"</span>,
+    <span class="tok-prop">"text"</span>: <span class="tok-str">"Xin chào! Tôi có thể giúp gì cho bạn?"</span>
+  }
+}</pre>
+      </div>
+    </div>
+  </div>
+
+  <div class="api-card">
+    <div class="api-header" onclick="toggleCard(this)">
+      <span class="method-badge method-post">POST</span>
+      <span class="api-path">/livechat/send-file</span>
+      <span class="api-title">Gửi file đính kèm</span>
+      <span class="api-toggle">▼</span>
+    </div>
+    <div class="api-body">
+      <p class="api-desc">Gửi file (PDF, image, Word, v.v.) đến chat. File phải có URL công khai.</p>
+      <div class="params-title">Request Body</div>
+      <table class="params-table">
+        <thead><tr><th>Tham số</th><th>Kiểu</th><th>Bắt buộc</th><th>Mô tả</th></tr></thead>
+        <tbody>
+          <tr><td><span class="param-name">chatId</span></td><td><span class="param-type">string</span></td><td><span class="param-req req-yes">YES</span></td><td class="param-desc">ID chat</td></tr>
+          <tr><td><span class="param-name">fileUrl</span></td><td><span class="param-type">string</span></td><td><span class="param-req req-yes">YES</span></td><td class="param-desc">URL công khai của file</td></tr>
+          <tr><td><span class="param-name">contentType</span></td><td><span class="param-type">string</span></td><td><span class="param-req req-yes">YES</span></td><td class="param-desc">MIME type. VD: <code>"application/pdf"</code>, <code>"image/jpeg"</code></td></tr>
+          <tr><td><span class="param-name">fileName</span></td><td><span class="param-type">string</span></td><td><span class="param-req req-yes">YES</span></td><td class="param-desc">Tên file hiển thị. VD: <code>"invoice.pdf"</code></td></tr>
+        </tbody>
+      </table>
+      <div class="params-title">Payload gửi đến LiveChat API</div>
+      <div class="code-wrap">
+        <div class="code-header"><span class="code-lang">POST .../send_event</span></div>
+        <pre>{
+  <span class="tok-prop">"chat_id"</span>: <span class="tok-str">"PJ0MRSHTDG"</span>,
+  <span class="tok-prop">"event"</span>: {
+    <span class="tok-prop">"type"</span>: <span class="tok-str">"file"</span>,
+    <span class="tok-prop">"url"</span>: <span class="tok-str">"https://cdn.example.com/invoice.pdf"</span>,
+    <span class="tok-prop">"content_type"</span>: <span class="tok-str">"application/pdf"</span>,
+    <span class="tok-prop">"name"</span>: <span class="tok-str">"invoice.pdf"</span>
+  }
+}</pre>
+      </div>
+    </div>
+  </div>
+
+  <div class="api-card">
+    <div class="api-header" onclick="toggleCard(this)">
+      <span class="method-badge method-post">POST</span>
+      <span class="api-path">/livechat/send-rich-message</span>
+      <span class="api-title">Gửi Rich Message (card, buttons)</span>
+      <span class="api-toggle">▼</span>
+    </div>
+    <div class="api-body">
+      <p class="api-desc">Gửi rich message — tin nhắn có giao diện đặc biệt như card với ảnh, tiêu đề, mô tả và các nút bấm. Dùng để gửi thông tin sản phẩm, menu lựa chọn, v.v.</p>
+      <div class="params-title">Request Body</div>
+      <table class="params-table">
+        <thead><tr><th>Tham số</th><th>Kiểu</th><th>Bắt buộc</th><th>Mô tả</th></tr></thead>
+        <tbody>
+          <tr><td><span class="param-name">chatId</span></td><td><span class="param-type">string</span></td><td><span class="param-req req-yes">YES</span></td><td class="param-desc">ID chat</td></tr>
+          <tr><td><span class="param-name">richMessage</span></td><td><span class="param-type">object</span></td><td><span class="param-req req-yes">YES</span></td><td class="param-desc">Object rich message theo chuẩn LiveChat (template_id, elements...)</td></tr>
+        </tbody>
+      </table>
+      <div class="params-title">Ví dụ richMessage (product card)</div>
+      <div class="code-wrap">
+        <div class="code-header"><span class="code-lang">JSON — richMessage field</span><button class="code-copy" onclick="copyCode(this)">copy</button></div>
+        <pre>{
+  <span class="tok-prop">"template_id"</span>: <span class="tok-str">"cards"</span>,
+  <span class="tok-prop">"elements"</span>: [{
+    <span class="tok-prop">"title"</span>: <span class="tok-str">"Sản phẩm A"</span>,
+    <span class="tok-prop">"subtitle"</span>: <span class="tok-str">"Mô tả ngắn về sản phẩm"</span>,
+    <span class="tok-prop">"image"</span>: {
+      <span class="tok-prop">"url"</span>: <span class="tok-str">"https://cdn.example.com/product-a.jpg"</span>
+    },
+    <span class="tok-prop">"buttons"</span>: [
+      { <span class="tok-prop">"text"</span>: <span class="tok-str">"Xem chi tiết"</span>, <span class="tok-prop">"type"</span>: <span class="tok-str">"url"</span>, <span class="tok-prop">"value"</span>: <span class="tok-str">"https://shop.com/product-a"</span> },
+      { <span class="tok-prop">"text"</span>: <span class="tok-str">"Mua ngay"</span>, <span class="tok-prop">"type"</span>: <span class="tok-str">"message"</span>, <span class="tok-prop">"value"</span>: <span class="tok-str">"Tôi muốn mua Sản phẩm A"</span> }
+    ]
+  }]
+}</pre>
+      </div>
+    </div>
+  </div>
+
+  <div class="api-card">
+    <div class="api-header" onclick="toggleCard(this)">
+      <span class="method-badge method-post">POST</span>
+      <span class="api-path">/livechat/send-system-message</span>
+      <span class="api-title">Gửi System Message</span>
+      <span class="api-toggle">▼</span>
+    </div>
+    <div class="api-body">
+      <p class="api-desc">Gửi thông báo hệ thống (system_message) — hiển thị khác biệt so với tin nhắn thường, không có tên người gửi. Dùng cho: "Chat đã được chuyển đến bộ phận kỹ thuật", "Bot đã tự động trả lời", v.v.</p>
+      <div class="params-title">Request Body</div>
+      <table class="params-table">
+        <thead><tr><th>Tham số</th><th>Kiểu</th><th>Bắt buộc</th><th>Mô tả</th></tr></thead>
+        <tbody>
+          <tr><td><span class="param-name">chatId</span></td><td><span class="param-type">string</span></td><td><span class="param-req req-yes">YES</span></td><td class="param-desc">ID chat</td></tr>
+          <tr><td><span class="param-name">text</span></td><td><span class="param-type">string</span></td><td><span class="param-req req-yes">YES</span></td><td class="param-desc">Nội dung thông báo hệ thống</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- AGENT STATUS SECTION -->
+  <div style="margin:32px 0 12px" id="lc-agents">
+    <div style="font-family:'Syne',sans-serif;font-size:16px;font-weight:700;color:var(--text2);padding-bottom:10px;border-bottom:1px solid var(--border)">
+      🧑‍💼 Agent, Trạng thái & Chuyển chat
+    </div>
+  </div>
+
+  <div class="api-card">
+    <div class="api-header" onclick="toggleCard(this)">
+      <span class="method-badge method-post">POST</span>
+      <span class="api-path">/livechat/status</span>
+      <span class="api-title">Cập nhật trạng thái agent</span>
+      <span class="api-toggle">▼</span>
+    </div>
+    <div class="api-body">
+      <p class="api-desc">Thay đổi trạng thái sẵn sàng tiếp nhận chat của agent. Gọi LiveChat action <code>set_routing_status</code>. Ảnh hưởng đến việc hệ thống có tự động route chat vào agent này không.</p>
+      <div class="params-title">Request Body</div>
+      <table class="params-table">
+        <thead><tr><th>Tham số</th><th>Kiểu</th><th>Bắt buộc</th><th>Mô tả</th></tr></thead>
+        <tbody>
+          <tr>
+            <td><span class="param-name">status</span></td>
+            <td><span class="param-type">string enum</span></td>
+            <td><span class="param-req req-yes">YES</span></td>
+            <td class="param-desc">
+              <code>"accepting_chats"</code> — Sẵn sàng, nhận chat mới<br>
+              <code>"not_accepting_chats"</code> — Đang bận, không nhận thêm<br>
+              <code>"offline"</code> — Ngoại tuyến
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="api-card">
+    <div class="api-header" onclick="toggleCard(this)">
+      <span class="method-badge method-get">GET</span>
+      <span class="api-path">/livechat/status</span>
+      <span class="api-title">Xem trạng thái agent</span>
+      <span class="api-toggle">▼</span>
+    </div>
+    <div class="api-body">
+      <p class="api-desc">Lấy trạng thái routing hiện tại của agent. Nếu không truyền <code>agentId</code>, lấy trạng thái của agent đang xác thực (token).</p>
+      <div class="params-title">Query Params</div>
+      <table class="params-table">
+        <thead><tr><th>Tham số</th><th>Kiểu</th><th>Bắt buộc</th><th>Mô tả</th></tr></thead>
+        <tbody>
+          <tr>
+            <td><span class="param-name">agentId</span></td>
+            <td><span class="param-type">string?</span></td>
+            <td><span class="param-req req-no">OPT</span></td>
+            <td class="param-desc">Email agent cần kiểm tra. VD: <code>?agentId=agent@company.com</code></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="api-card">
+    <div class="api-header" onclick="toggleCard(this)">
+      <span class="method-badge method-get">GET</span>
+      <span class="api-path">/livechat/agents</span>
+      <span class="api-title">Danh sách agents</span>
+      <span class="api-toggle">▼</span>
+    </div>
+    <div class="api-body">
+      <p class="api-desc">Lấy toàn bộ danh sách agents trong tổ chức. Gọi LiveChat action <code>list_agents</code>. Kết quả có ID agent dùng cho API transfer_chat.</p>
+    </div>
+  </div>
+
+  <div class="api-card">
+    <div class="api-header" onclick="toggleCard(this)">
+      <span class="method-badge method-post">POST</span>
+      <span class="api-path">/livechat/chat/:chatId/transfer</span>
+      <span class="api-title">Chuyển chat sang agent khác</span>
+      <span class="api-toggle">▼</span>
+    </div>
+    <div class="api-body">
+      <p class="api-desc">Chuyển quyền phụ trách chat sang một hoặc nhiều agent khác. Gọi LiveChat action <code>transfer_chat</code>.</p>
+      <div class="params-title">Request Body</div>
+      <table class="params-table">
+        <thead><tr><th>Tham số</th><th>Kiểu</th><th>Bắt buộc</th><th>Mô tả</th></tr></thead>
+        <tbody>
+          <tr><td><span class="param-name">targetAgentIds</span></td><td><span class="param-type">string[]</span></td><td><span class="param-req req-yes">YES</span></td><td class="param-desc">Mảng ID agents nhận chat. VD: <code>["agent2@co.com"]</code></td></tr>
+          <tr><td><span class="param-name">force</span></td><td><span class="param-type">boolean?</span></td><td><span class="param-req req-no">OPT</span></td><td class="param-desc">Nếu <code>true</code>: chuyển ngay cả khi agent đích đang bận. Mặc định: <code>false</code></td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- CUSTOMERS SECTION -->
+  <div style="margin:32px 0 12px" id="lc-customers">
+    <div style="font-family:'Syne',sans-serif;font-size:16px;font-weight:700;color:var(--text2);padding-bottom:10px;border-bottom:1px solid var(--border)">
+      👥 Customers
+    </div>
+  </div>
+
+  <div class="api-card">
+    <div class="api-header" onclick="toggleCard(this)">
+      <span class="method-badge method-get">GET</span>
+      <span class="api-path">/livechat/customers</span>
+      <span class="api-title">Danh sách customers</span>
+      <span class="api-toggle">▼</span>
+    </div>
+    <div class="api-body">
+      <p class="api-desc">Lấy danh sách tất cả khách hàng. Gọi LiveChat action <code>list_customers</code>. Trả về thông tin cơ bản: ID, email, tên, các chat đã tham gia.</p>
+    </div>
+  </div>
+
+  <div class="api-card">
+    <div class="api-header" onclick="toggleCard(this)">
+      <span class="method-badge method-get">GET</span>
+      <span class="api-path">/livechat/customer/:customerId</span>
+      <span class="api-title">Thông tin customer</span>
+      <span class="api-toggle">▼</span>
+    </div>
+    <div class="api-body">
+      <p class="api-desc">Lấy chi tiết một khách hàng theo ID. Gọi LiveChat action <code>get_customer</code>.</p>
+      <div class="params-title">URL Params</div>
+      <table class="params-table">
+        <thead><tr><th>Tham số</th><th>Kiểu</th><th>Mô tả</th></tr></thead>
+        <tbody><tr><td><span class="param-name">customerId</span></td><td><span class="param-type">string</span></td><td class="param-desc">ID customer trên LiveChat</td></tr></tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="api-card">
+    <div class="api-header" onclick="toggleCard(this)">
+      <span class="method-badge method-post">POST</span>
+      <span class="api-path">/livechat/customer/:customerId/update</span>
+      <span class="api-title">Cập nhật thông tin customer</span>
+      <span class="api-toggle">▼</span>
+    </div>
+    <div class="api-body">
+      <p class="api-desc">Cập nhật tên, email của một customer. Gọi LiveChat action <code>update_customer</code>.</p>
+      <div class="params-title">Request Body</div>
+      <table class="params-table">
+        <thead><tr><th>Tham số</th><th>Kiểu</th><th>Bắt buộc</th><th>Mô tả</th></tr></thead>
+        <tbody>
+          <tr><td><span class="param-name">name</span></td><td><span class="param-type">string?</span></td><td><span class="param-req req-no">OPT</span></td><td class="param-desc">Tên mới</td></tr>
+          <tr><td><span class="param-name">email</span></td><td><span class="param-type">string?</span></td><td><span class="param-req req-no">OPT</span></td><td class="param-desc">Email mới</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="api-card">
+    <div class="api-header" onclick="toggleCard(this)">
+      <span class="method-badge method-post">POST</span>
+      <span class="api-path">/livechat/customer/:customerId/ban</span>
+      <span class="api-title">Ban customer</span>
+      <span class="api-toggle">▼</span>
+    </div>
+    <div class="api-body">
+      <p class="api-desc">Cấm một customer tạo chat trong một số ngày nhất định. Gọi LiveChat action <code>ban_customer</code>.</p>
+      <div class="params-title">Request Body</div>
+      <table class="params-table">
+        <thead><tr><th>Tham số</th><th>Kiểu</th><th>Bắt buộc</th><th>Mô tả</th></tr></thead>
+        <tbody>
+          <tr><td><span class="param-name">days</span></td><td><span class="param-type">number</span></td><td><span class="param-req req-yes">YES</span></td><td class="param-desc">Số ngày ban. VD: <code>7</code></td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- TAGS SECTION -->
+  <div style="margin:32px 0 12px" id="lc-tags">
+    <div style="font-family:'Syne',sans-serif;font-size:16px;font-weight:700;color:var(--text2);padding-bottom:10px;border-bottom:1px solid var(--border)">
+      🏷️ Tags, Canned Responses & Groups
+    </div>
+  </div>
+
+  <div class="api-card">
+    <div class="api-header" onclick="toggleCard(this)">
+      <span class="method-badge method-get">GET</span>
+      <span class="api-path">/livechat/tags</span>
+      <span class="api-title">Danh sách tags</span>
+      <span class="api-toggle">▼</span>
+    </div>
+    <div class="api-body">
+      <p class="api-desc">Lấy danh sách các nhãn (tag) đã tạo trên LiveChat. Gọi action <code>list_tags</code>.</p>
+      <div class="params-title">Query Params</div>
+      <table class="params-table">
+        <thead><tr><th>Tham số</th><th>Kiểu</th><th>Bắt buộc</th><th>Mô tả</th></tr></thead>
+        <tbody><tr><td><span class="param-name">groupId</span></td><td><span class="param-type">number?</span></td><td><span class="param-req req-no">OPT</span></td><td class="param-desc">Lọc theo group ID. Mặc định: <code>0</code> (group mặc định)</td></tr></tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="api-card">
+    <div class="api-header" onclick="toggleCard(this)">
+      <span class="method-badge method-post">POST</span>
+      <span class="api-path">/livechat/chat/:chatId/tag</span>
+      <span class="api-title">Gắn / Gỡ tag cho chat</span>
+      <span class="api-toggle">▼</span>
+    </div>
+    <div class="api-body">
+      <p class="api-desc">
+        <strong>Gắn tag</strong>: <code>POST /livechat/chat/:chatId/tag</code> — Gọi action <code>tag_thread</code><br>
+        <strong>Gỡ tag</strong>: <code>POST /livechat/chat/:chatId/untag</code> — Gọi action <code>untag_thread</code>
+      </p>
+      <div class="params-title">Request Body</div>
+      <table class="params-table">
+        <thead><tr><th>Tham số</th><th>Kiểu</th><th>Mô tả</th></tr></thead>
+        <tbody><tr><td><span class="param-name">tag</span></td><td><span class="param-type">string</span></td><td class="param-desc">Tên tag. VD: <code>"urgent"</code>, <code>"vip"</code></td></tr></tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="api-card">
+    <div class="api-header" onclick="toggleCard(this)">
+      <span class="method-badge method-get">GET</span>
+      <span class="api-path">/livechat/canned-responses</span>
+      <span class="api-title">Canned Responses (mẫu câu trả lời)</span>
+      <span class="api-toggle">▼</span>
+    </div>
+    <div class="api-body">
+      <p class="api-desc">Lấy danh sách các câu trả lời mẫu (shortcut + nội dung) đã cấu hình. Agents dùng để trả lời nhanh các câu hỏi thường gặp. Gọi action <code>list_canned_responses</code>.</p>
+    </div>
+  </div>
+
+  <div class="api-card">
+    <div class="api-header" onclick="toggleCard(this)">
+      <span class="method-badge method-get">GET</span>
+      <span class="api-path">/livechat/groups</span>
+      <span class="api-title">Danh sách groups</span>
+      <span class="api-toggle">▼</span>
+    </div>
+    <div class="api-body">
+      <p class="api-desc">Lấy danh sách các nhóm agent. Gọi action <code>list_groups</code>. Dùng để phân loại chat theo phòng ban (Kỹ thuật, Kinh doanh, CSKH...).</p>
+    </div>
+  </div>
+
+  <!-- WEBHOOKS SECTION -->
+  <div style="margin:32px 0 12px" id="lc-webhooks">
+    <div style="font-family:'Syne',sans-serif;font-size:16px;font-weight:700;color:var(--text2);padding-bottom:10px;border-bottom:1px solid var(--border)">
+      🔔 Webhooks
+    </div>
+  </div>
+
+  <div class="note-box note-warn">
+    <div class="note-icon">⚠️</div>
+    <div>
+      <strong>Cơ chế Webhook LiveChat:</strong> Khi có sự kiện (tin nhắn mới, chat bắt đầu...) trên LiveChat,
+      LiveChat sẽ tự động gửi HTTP POST đến URL bạn đăng ký.
+      Endpoint nhận là <code>POST /livechat/webhook/incoming</code>.
+      URL này phải được exposed ra internet (dùng ngrok khi dev local).
+    </div>
+  </div>
+
+  <div class="api-card">
+    <div class="api-header" onclick="toggleCard(this)">
+      <span class="method-badge method-get">GET</span>
+      <span class="api-path">/livechat/webhooks</span>
+      <span class="api-title">Danh sách webhooks đã đăng ký</span>
+      <span class="api-toggle">▼</span>
+    </div>
+    <div class="api-body">
+      <p class="api-desc">Lấy danh sách các webhook đang active trên tài khoản LiveChat. Gọi action <code>list_webhooks</code>.</p>
+    </div>
+  </div>
+
+  <div class="api-card">
+    <div class="api-header" onclick="toggleCard(this)">
+      <span class="method-badge method-post">POST</span>
+      <span class="api-path">/livechat/webhook/register</span>
+      <span class="api-title">Đăng ký webhook mới</span>
+      <span class="api-toggle">▼</span>
+    </div>
+    <div class="api-body">
+      <p class="api-desc">Đăng ký một URL để nhận thông báo khi có sự kiện cụ thể xảy ra trên LiveChat. Gọi action <code>register_webhook</code>.</p>
+      <div class="params-title">Request Body</div>
+      <table class="params-table">
+        <thead><tr><th>Tham số</th><th>Kiểu</th><th>Bắt buộc</th><th>Mô tả</th></tr></thead>
+        <tbody>
+          <tr>
+            <td><span class="param-name">url</span></td>
+            <td><span class="param-type">string</span></td>
+            <td><span class="param-req req-yes">YES</span></td>
+            <td class="param-desc">URL nhận webhook. VD: <code>"https://yourdomain.com/livechat/webhook/incoming"</code></td>
+          </tr>
+          <tr>
+            <td><span class="param-name">action</span></td>
+            <td><span class="param-type">string</span></td>
+            <td><span class="param-req req-yes">YES</span></td>
+            <td class="param-desc">Sự kiện cần lắng nghe. VD: <code>"incoming_chat"</code>, <code>"incoming_event"</code>, <code>"chat_deactivated"</code></td>
+          </tr>
+          <tr>
+            <td><span class="param-name">secretKey</span></td>
+            <td><span class="param-type">string</span></td>
+            <td><span class="param-req req-yes">YES</span></td>
+            <td class="param-desc">Secret key dùng để verify webhook. LiveChat gửi signature trong header <code>X-LiveChat-Signature</code></td>
+          </tr>
+        </tbody>
+      </table>
+      <div class="params-title">Ví dụ Request</div>
+      <div class="code-wrap">
+        <div class="code-header"><span class="code-lang">JSON</span><button class="code-copy" onclick="copyCode(this)">copy</button></div>
+        <pre>{
+  <span class="tok-prop">"url"</span>: <span class="tok-str">"https://abc123.ngrok.io/livechat/webhook/incoming"</span>,
+  <span class="tok-prop">"action"</span>: <span class="tok-str">"incoming_event"</span>,
+  <span class="tok-prop">"secretKey"</span>: <span class="tok-str">"my-secret-key-2024"</span>
+}</pre>
+      </div>
+    </div>
+  </div>
+
+  <div class="api-card">
+    <div class="api-header" onclick="toggleCard(this)">
+      <span class="method-badge method-post">POST</span>
+      <span class="api-path">/livechat/webhook/incoming</span>
+      <span class="api-title">Endpoint nhận webhook từ LiveChat</span>
+      <span class="api-toggle">▼</span>
+    </div>
+    <div class="api-body">
+      <p class="api-desc">
+        Đây là URL cần <strong>cấu hình trên LiveChat</strong> để LiveChat gửi events đến. Hiện tại endpoint này chỉ log payload ra console (chưa xử lý routing — có thể mở rộng).
+      </p>
+      <div class="params-title">Payload LiveChat gửi đến (incoming_event)</div>
+      <div class="code-wrap">
+        <div class="code-header"><span class="code-lang">JSON — Payload mẫu từ LiveChat</span></div>
+        <pre>{
+  <span class="tok-prop">"webhook_id"</span>: <span class="tok-str">"PJ0MRSHTDG"</span>,
+  <span class="tok-prop">"secret_key"</span>: <span class="tok-str">"my-secret-key-2024"</span>,
+  <span class="tok-prop">"action"</span>: <span class="tok-str">"incoming_event"</span>,
+  <span class="tok-prop">"payload"</span>: {
+    <span class="tok-prop">"chat_id"</span>: <span class="tok-str">"PJ0MRSHTDG"</span>,
+    <span class="tok-prop">"thread_id"</span>: <span class="tok-str">"K600PKZON8"</span>,
+    <span class="tok-prop">"event"</span>: {
+      <span class="tok-prop">"id"</span>: <span class="tok-str">"Q20163UAHO"</span>,
+      <span class="tok-prop">"type"</span>: <span class="tok-str">"message"</span>,
+      <span class="tok-prop">"text"</span>: <span class="tok-str">"Xin chào, tôi cần hỗ trợ về đơn hàng"</span>,
+      <span class="tok-prop">"author_id"</span>: <span class="tok-str">"customer:abc"</span>,
+      <span class="tok-prop">"created_at"</span>: <span class="tok-str">"2024-01-15T10:30:00.000Z"</span>
+    }
+  }
+}</pre>
+      </div>
+    </div>
+  </div>
+
+  <div class="api-card">
+    <div class="api-header" onclick="toggleCard(this)">
+      <span class="method-badge method-post">POST</span>
+      <span class="api-path">/livechat/webhook/:webhookId/unregister</span>
+      <span class="api-title">Xóa webhook</span>
+      <span class="api-toggle">▼</span>
+    </div>
+    <div class="api-body">
+      <p class="api-desc">Hủy đăng ký và xóa một webhook. Gọi action <code>unregister_webhook</code>.</p>
+      <div class="params-title">URL Params</div>
+      <table class="params-table">
+        <thead><tr><th>Tham số</th><th>Kiểu</th><th>Mô tả</th></tr></thead>
+        <tbody><tr><td><span class="param-name">webhookId</span></td><td><span class="param-type">string</span></td><td class="param-desc">ID webhook cần xóa (lấy từ list_webhooks)</td></tr></tbody>
+      </table>
+    </div>
+  </div>
+
+  <hr class="divider">
+
+  <!-- ============ WEBSOCKET GATEWAY ============ -->
+  <div class="section-header" id="ws-gateway">
+    <div class="section-icon icon-ws">⚡</div>
+    <div class="section-header-text">
+      <h2>WebSocket Gateway — LiveChat</h2>
+      <p>Kênh realtime 2 chiều cho Agent Dashboard — <code style="font-family:'JetBrains Mono',monospace">ws://localhost:3000/livechat</code></p>
+    </div>
+  </div>
+
+  <div class="note-box note-info">
+    <div class="note-icon">ℹ️</div>
+    <div>
+      Kết nối bằng <strong>Socket.io client</strong>. Namespace: <code>/livechat</code>. CORS enabled.<br>
+      <code style="font-family:'JetBrains Mono',monospace;font-size:12px;">const socket = io("http://localhost:3000/livechat");</code>
+    </div>
+  </div>
+
+  <!-- Connection Events -->
+  <div style="margin-bottom:16px">
+    <div class="params-title" style="margin-bottom:10px">Events Server → Client (tự động)</div>
+    <table class="params-table">
+      <thead><tr><th>Event</th><th>Khi nào</th><th>Payload</th></tr></thead>
+      <tbody>
+        <tr>
+          <td><span class="param-name">connected</span></td>
+          <td style="font-size:13px;color:var(--text2)">Ngay sau khi kết nối thành công</td>
+          <td style="font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--text3)">&#123; message, clientId &#125;</td>
+        </tr>
+        <tr>
+          <td><span class="param-name">new_message_to_agent</span></td>
+          <td style="font-size:13px;color:var(--text2)">Có tin nhắn từ Telegram đến (qua Hub) hoặc từ LiveChat webhook</td>
+          <td style="font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--text3)">&#123; threadId, messageData: IStandardMessage &#125;</td>
+        </tr>
+        <tr>
+          <td><span class="param-name">message_sent</span></td>
+          <td style="font-size:13px;color:var(--text2)">Xác nhận sau khi agent gửi tin thành công</td>
+          <td style="font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--text3)">&#123; success, threadId, text, timestamp &#125;</td>
+        </tr>
+        <tr>
+          <td><span class="param-name">active_chats</span></td>
+          <td style="font-size:13px;color:var(--text2)">Phản hồi khi emit get_active_chats</td>
+          <td style="font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--text3)">Dữ liệu từ LiveChat list_chats</td>
+        </tr>
+        <tr>
+          <td><span class="param-name">chat_detail</span></td>
+          <td style="font-size:13px;color:var(--text2)">Phản hồi khi emit get_chat_detail</td>
+          <td style="font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--text3)">Dữ liệu từ LiveChat get_chat</td>
+        </tr>
+        <tr>
+          <td><span class="param-name">agent_status_updated</span></td>
+          <td style="font-size:13px;color:var(--text2)">Phản hồi khi emit set_agent_status</td>
+          <td style="font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--text3)">&#123; status, result &#125;</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- WS Events -->
+  <div class="api-card">
+    <div class="api-header" onclick="toggleCard(this)">
+      <span class="method-badge method-ws">WS</span>
+      <span class="api-path">agent_send_message</span>
+      <span class="api-title">Nhân viên gửi tin nhắn cho khách</span>
+      <span class="api-toggle">▼</span>
+    </div>
+    <div class="api-body">
+      <p class="api-desc">
+        Nhân viên phát event này để gửi tin nhắn đến khách hàng qua Hub.
+        Hub sẽ định tuyến sang Telegram Adapter → gửi về Telegram của khách.
+      </p>
+      <div class="flow-mini">
+        <div class="flow-step"><div class="step-num">1</div>Agent emit <code>agent_send_message</code></div>
+        <div class="flow-sep">→</div>
+        <div class="flow-step"><div class="step-num">2</div>Parse thành IStandardMessage (platform=LIVECHAT)</div>
+        <div class="flow-sep">→</div>
+        <div class="flow-step"><div class="step-num">3</div>ChatHub routing: LIVECHAT → TELEGRAM</div>
+        <div class="flow-sep">→</div>
+        <div class="flow-step"><div class="step-num">4</div>TelegramService.sendMessage(chatId, msg)</div>
+        <div class="flow-sep">→</div>
+        <div class="flow-step"><div class="step-num">5</div>Server emit <code>message_sent</code> cho agent</div>
+      </div>
+      <div class="params-title">Payload gửi lên (emit)</div>
+      <table class="params-table">
+        <thead><tr><th>Tham số</th><th>Kiểu</th><th>Bắt buộc</th><th>Mô tả</th></tr></thead>
+        <tbody>
+          <tr><td><span class="param-name">customerThreadId</span></td><td><span class="param-type">string</span></td><td><span class="param-req req-yes">YES</span></td><td class="param-desc">Telegram Chat ID của khách hàng (đây là key để biết gửi Telegram cho ai)</td></tr>
+          <tr><td><span class="param-name">agentName</span></td><td><span class="param-type">string</span></td><td><span class="param-req req-yes">YES</span></td><td class="param-desc">Tên nhân viên. VD: <code>"Nguyễn Văn A"</code></td></tr>
+          <tr><td><span class="param-name">text</span></td><td><span class="param-type">string</span></td><td><span class="param-req req-yes">YES</span></td><td class="param-desc">Nội dung tin nhắn</td></tr>
+        </tbody>
+      </table>
+      <div class="params-title">Code ví dụ (JavaScript client)</div>
+      <div class="code-wrap">
+        <div class="code-header"><span class="code-lang">JavaScript — Socket.io client</span><button class="code-copy" onclick="copyCode(this)">copy</button></div>
+        <pre><span class="tok-key">const</span> socket = <span class="tok-method">io</span>(<span class="tok-str">"http://localhost:3000/livechat"</span>);
+
+<span class="tok-cmt">// Lắng nghe tin nhắn từ khách hàng</span>
+socket.<span class="tok-method">on</span>(<span class="tok-str">"new_message_to_agent"</span>, (data) => {
+  console.<span class="tok-method">log</span>(<span class="tok-str">`Khách ${data.messageData.senderName}: ${data.messageData.text}`</span>);
+  <span class="tok-cmt">// → Hiển thị lên giao diện chat agent</span>
+});
+
+<span class="tok-cmt">// Nhân viên trả lời</span>
+socket.<span class="tok-method">emit</span>(<span class="tok-str">"agent_send_message"</span>, {
+  <span class="tok-prop">customerThreadId</span>: <span class="tok-str">"123456789"</span>,  <span class="tok-cmt">// Telegram Chat ID khách</span>
+  <span class="tok-prop">agentName</span>: <span class="tok-str">"Nguyễn Văn A"</span>,
+  <span class="tok-prop">text</span>: <span class="tok-str">"Chào bạn! Tôi có thể hỗ trợ gì cho bạn?"</span>
+});</pre>
+      </div>
+    </div>
+  </div>
+
+  <div class="api-card">
+    <div class="api-header" onclick="toggleCard(this)">
+      <span class="method-badge method-ws">WS</span>
+      <span class="api-path">agent_send_image</span>
+      <span class="api-title">Nhân viên gửi ảnh cho khách</span>
+      <span class="api-toggle">▼</span>
+    </div>
+    <div class="api-body">
+      <p class="api-desc">Tương tự <code>agent_send_message</code> nhưng gửi ảnh. Hub → Telegram → Bot gửi ảnh cho khách.</p>
+      <div class="params-title">Payload</div>
+      <table class="params-table">
+        <thead><tr><th>Tham số</th><th>Kiểu</th><th>Bắt buộc</th><th>Mô tả</th></tr></thead>
+        <tbody>
+          <tr><td><span class="param-name">customerThreadId</span></td><td><span class="param-type">string</span></td><td><span class="param-req req-yes">YES</span></td><td class="param-desc">Telegram Chat ID khách</td></tr>
+          <tr><td><span class="param-name">agentName</span></td><td><span class="param-type">string</span></td><td><span class="param-req req-yes">YES</span></td><td class="param-desc">Tên nhân viên</td></tr>
+          <tr><td><span class="param-name">imageUrl</span></td><td><span class="param-type">string</span></td><td><span class="param-req req-yes">YES</span></td><td class="param-desc">URL ảnh công khai</td></tr>
+          <tr><td><span class="param-name">caption</span></td><td><span class="param-type">string?</span></td><td><span class="param-req req-no">OPT</span></td><td class="param-desc">Chú thích ảnh</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="api-card">
+    <div class="api-header" onclick="toggleCard(this)">
+      <span class="method-badge method-ws">WS</span>
+      <span class="api-path">agent_send_file</span>
+      <span class="api-title">Nhân viên gửi file cho khách</span>
+      <span class="api-toggle">▼</span>
+    </div>
+    <div class="api-body">
+      <p class="api-desc">Nhân viên gửi file đến khách qua Hub → Telegram.</p>
+      <div class="params-title">Payload</div>
+      <table class="params-table">
+        <thead><tr><th>Tham số</th><th>Kiểu</th><th>Bắt buộc</th><th>Mô tả</th></tr></thead>
+        <tbody>
+          <tr><td><span class="param-name">customerThreadId</span></td><td><span class="param-type">string</span></td><td><span class="param-req req-yes">YES</span></td><td class="param-desc">Telegram Chat ID khách</td></tr>
+          <tr><td><span class="param-name">agentName</span></td><td><span class="param-type">string</span></td><td><span class="param-req req-yes">YES</span></td><td class="param-desc">Tên nhân viên</td></tr>
+          <tr><td><span class="param-name">fileUrl</span></td><td><span class="param-type">string</span></td><td><span class="param-req req-yes">YES</span></td><td class="param-desc">URL file công khai</td></tr>
+          <tr><td><span class="param-name">fileName</span></td><td><span class="param-type">string</span></td><td><span class="param-req req-yes">YES</span></td><td class="param-desc">Tên file hiển thị. VD: <code>"invoice.pdf"</code></td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="api-card">
+    <div class="api-header" onclick="toggleCard(this)">
+      <span class="method-badge method-ws">WS</span>
+      <span class="api-path">typing_indicator</span>
+      <span class="api-title">Chỉ báo "đang nhập"</span>
+      <span class="api-toggle">▼</span>
+    </div>
+    <div class="api-body">
+      <p class="api-desc">Gửi/hủy trạng thái "đang nhập..." trên LiveChat. Gọi LiveChat action <code>send_typing_indicator</code>.</p>
+      <div class="params-title">Payload</div>
+      <table class="params-table">
+        <thead><tr><th>Tham số</th><th>Kiểu</th><th>Mô tả</th></tr></thead>
+        <tbody>
+          <tr><td><span class="param-name">chatId</span></td><td><span class="param-type">string</span></td><td class="param-desc">Chat ID LiveChat</td></tr>
+          <tr><td><span class="param-name">isTyping</span></td><td><span class="param-type">boolean</span></td><td class="param-desc"><code>true</code>: bắt đầu hiện "đang nhập...", <code>false</code>: ẩn đi</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="api-card">
+    <div class="api-header" onclick="toggleCard(this)">
+      <span class="method-badge method-ws">WS</span>
+      <span class="api-path">set_agent_status</span>
+      <span class="api-title">Đổi trạng thái agent qua WS</span>
+      <span class="api-toggle">▼</span>
+    </div>
+    <div class="api-body">
+      <p class="api-desc">Tương đương <code>POST /livechat/status</code> nhưng qua WebSocket. Nhận phản hồi qua event <code>agent_status_updated</code>.</p>
+      <div class="params-title">Payload</div>
+      <table class="params-table">
+        <thead><tr><th>Tham số</th><th>Kiểu</th><th>Mô tả</th></tr></thead>
+        <tbody><tr><td><span class="param-name">status</span></td><td><span class="param-type">string</span></td><td class="param-desc"><code>"accepting_chats"</code> | <code>"not_accepting_chats"</code> | <code>"offline"</code></td></tr></tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="api-card">
+    <div class="api-header" onclick="toggleCard(this)">
+      <span class="method-badge method-ws">WS</span>
+      <span class="api-path">livechat_webhook</span>
+      <span class="api-title">Forward webhook từ LiveChat vào Gateway</span>
+      <span class="api-toggle">▼</span>
+    </div>
+    <div class="api-body">
+      <p class="api-desc">
+        Khi nhận được webhook từ LiveChat (qua REST endpoint), frontend hoặc proxy có thể forward payload này
+        vào Gateway qua WebSocket để broadcast cho tất cả agents đang kết nối.
+        Gateway sẽ phân tích action và phát event <code>new_message_to_agent</code> nếu là tin nhắn mới.
+      </p>
+    </div>
+  </div>
+
+  <!-- COMPLETE FLOW EXAMPLE -->
+  <hr class="divider">
+  <div class="arch-box">
+    <div class="section-title">🎬 Ví dụ luồng hoàn chỉnh: Khách Telegram → Nhân viên LiveChat → Trả lời</div>
+    <div class="section-sub">End-to-end flow từ khi khách nhắn đến khi nhận được phản hồi</div>
+
+    <div style="display:flex;flex-direction:column;gap:14px;margin-top:4px">
+      <div style="display:flex;gap:16px;align-items:flex-start">
+        <div style="min-width:32px;height:32px;border-radius:50%;background:var(--accent1);display:flex;align-items:center;justify-content:center;font-weight:700;font-family:'JetBrains Mono',monospace;font-size:13px;flex-shrink:0;margin-top:4px">1</div>
+        <div>
+          <div style="font-weight:500;color:var(--text);margin-bottom:3px">Khách gửi "Tôi muốn kiểm tra đơn hàng #123" từ Telegram</div>
+          <div style="font-size:13px;color:var(--text3)">Telegram Bot nhận update → <code>bot.on('text')</code> kích hoạt → <code>parseTextMessage(ctx)</code></div>
+        </div>
+      </div>
+      <div style="display:flex;gap:16px;align-items:flex-start">
+        <div style="min-width:32px;height:32px;border-radius:50%;background:var(--accent1);display:flex;align-items:center;justify-content:center;font-weight:700;font-family:'JetBrains Mono',monospace;font-size:13px;flex-shrink:0;margin-top:4px">2</div>
+        <div>
+          <div style="font-weight:500;color:var(--text);margin-bottom:3px">Tạo IStandardMessage</div>
+          <div style="font-size:12px;color:var(--text3);font-family:'JetBrains Mono',monospace">&#123; platform: "TELEGRAM", platformThreadId: "123456789", senderType: "USER", messageType: "TEXT", text: "Tôi muốn kiểm tra đơn hàng #123" &#125;</div>
+        </div>
+      </div>
+      <div style="display:flex;gap:16px;align-items:flex-start">
+        <div style="min-width:32px;height:32px;border-radius:50%;background:var(--accent3);display:flex;align-items:center;justify-content:center;font-weight:700;font-family:'JetBrains Mono',monospace;font-size:13px;flex-shrink:0;margin-top:4px">3</div>
+        <div>
+          <div style="font-weight:500;color:var(--text);margin-bottom:3px">ChatHub nhận message → kiểm tra platform = TELEGRAM → route sang LIVECHAT</div>
+          <div style="font-size:13px;color:var(--text3)">Gọi <code>livechatAdapter.sendMessage("123456789", message)</code></div>
+        </div>
+      </div>
+      <div style="display:flex;gap:16px;align-items:flex-start">
+        <div style="min-width:32px;height:32px;border-radius:50%;background:var(--get);display:flex;align-items:center;justify-content:center;font-weight:700;font-family:'JetBrains Mono',monospace;font-size:13px;flex-shrink:0;margin-top:4px">4</div>
+        <div>
+          <div style="font-weight:500;color:var(--text);margin-bottom:3px">LivechatGateway.sendMessage() → broadcast WebSocket</div>
+          <div style="font-size:13px;color:var(--text3)"><code>server.emit("new_message_to_agent", &#123; threadId: "123456789", messageData: ... &#125;)</code></div>
+          <div style="font-size:13px;color:var(--text3);margin-top:4px">Tất cả agents đang kết nối WebSocket đều nhận được tin nhắn này trên Dashboard</div>
+        </div>
+      </div>
+      <div style="display:flex;gap:16px;align-items:flex-start">
+        <div style="min-width:32px;height:32px;border-radius:50%;background:var(--accent5);display:flex;align-items:center;justify-content:center;font-weight:700;font-family:'JetBrains Mono',monospace;font-size:13px;flex-shrink:0;margin-top:4px">5</div>
+        <div>
+          <div style="font-weight:500;color:var(--text);margin-bottom:3px">Nhân viên thấy tin → emit <code>agent_send_message</code></div>
+          <div style="font-size:12px;color:var(--text3);font-family:'JetBrains Mono',monospace">&#123; customerThreadId: "123456789", agentName: "Trần B", text: "Đơn hàng #123 đang được giao, dự kiến ngày mai" &#125;</div>
+        </div>
+      </div>
+      <div style="display:flex;gap:16px;align-items:flex-start">
+        <div style="min-width:32px;height:32px;border-radius:50%;background:var(--accent3);display:flex;align-items:center;justify-content:center;font-weight:700;font-family:'JetBrains Mono',monospace;font-size:13px;flex-shrink:0;margin-top:4px">6</div>
+        <div>
+          <div style="font-weight:500;color:var(--text);margin-bottom:3px">ChatHub nhận → platform = LIVECHAT → route sang TELEGRAM</div>
+          <div style="font-size:13px;color:var(--text3)">Gọi <code>telegramAdapter.sendMessage("123456789", message)</code></div>
+        </div>
+      </div>
+      <div style="display:flex;gap:16px;align-items:flex-start">
+        <div style="min-width:32px;height:32px;border-radius:50%;background:var(--accent1);display:flex;align-items:center;justify-content:center;font-weight:700;font-family:'JetBrains Mono',monospace;font-size:13px;flex-shrink:0;margin-top:4px">7</div>
+        <div>
+          <div style="font-weight:500;color:var(--text);margin-bottom:3px">Khách nhận được tin nhắn trên Telegram App</div>
+          <div style="font-size:13px;color:var(--text3)">Bot gửi: <code style="font-family:'JetBrains Mono',monospace">💬 [Trần B]: Đơn hàng #123 đang được giao, dự kiến ngày mai</code></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div style="margin-top:48px;padding-top:32px;border-top:1px solid var(--border);text-align:center">
+    <div style="font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--text3);letter-spacing:1px">
+      CSC-Adapter · NestJS · TypeScript · Swagger UI tại <span style="color:var(--accent2)">/api/docs</span>
+    </div>
+  </div>
+
+</main>
+</div>
+
+<script>
+  function toggleCard(el) {
+    el.parentElement.classList.toggle('open');
+  }
+
+  function copyCode(btn) {
+    const pre = btn.closest('.code-wrap').querySelector('pre');
+    navigator.clipboard.writeText(pre.innerText).then(() => {
+      btn.textContent = 'copied!';
+      btn.style.color = 'var(--get)';
+      setTimeout(() => { btn.textContent = 'copy'; btn.style.color = ''; }, 1500);
+    });
+  }
+
+  // Highlight active nav on scroll
+  const sections = document.querySelectorAll('[id]');
+  const navItems = document.querySelectorAll('.nav-item');
+  const observer = new IntersectionObserver((entries) => {
+    entries.forEach(entry => {
+      if (entry.isIntersecting) {
+        navItems.forEach(item => {
+          item.classList.remove('active');
+          if (item.getAttribute('href') === '#' + entry.target.id) {
+            item.classList.add('active');
+          }
+        });
+      }
+    });
+  }, { threshold: 0.3, rootMargin: '-100px 0px -60% 0px' });
+  sections.forEach(s => observer.observe(s));
+</script>
+</body>
+</html>

@@ -1,13 +1,16 @@
+// src/modules/adapters/livechat/livechat.module.ts
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
+import { LivechatApiService } from './livechat-api.service';
+import { LivechatAdapter } from './livechat.adapter';
 import { LivechatGateway } from './livechat.gateway';
-import { LivechatService } from './livechat.service';
-import { LivechatController } from './livechat.controller';
+import { LivechatWebhookController } from './livechat-webhook.controller';
+import { LivechatManagementController } from './livechat-management.controller';
 
 @Module({
   imports: [ConfigModule],
-  controllers: [LivechatController],
-  providers: [LivechatGateway, LivechatService],
-  exports: [LivechatService],
+  controllers: [LivechatWebhookController, LivechatManagementController],
+  providers: [LivechatApiService, LivechatAdapter, LivechatGateway],
+  exports: [LivechatApiService, LivechatAdapter],
 })
-export class LivechatModule {}
+export class LivechatModule { }

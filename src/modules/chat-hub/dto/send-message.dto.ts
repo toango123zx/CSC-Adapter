@@ -1,6 +1,6 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { IsEnum, IsNotEmpty, IsOptional, IsString } from 'class-validator';
-import { Platform, MessageType } from '../../../common/interfaces/standard-message.interface';
+import { Platform, MessageType } from '../../../common/enums';
 
 export class SendMessageDto {
   @ApiProperty({ enum: Platform, description: 'Nền tảng đích muốn gửi (TELEGRAM hoặc LIVECHAT)' })
