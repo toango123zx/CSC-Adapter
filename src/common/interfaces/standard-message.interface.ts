@@ -10,14 +10,14 @@ import { Platform, SenderType, MessageType } from '../enums';
  */
 export interface IStandardMessage {
   platform: Platform;
-  platformThreadId: string;     // ID cuộc hội thoại trên nền tảng gốc
-  platformMessageId: string;    // ID tin nhắn trên nền tảng gốc
+  platformThreadId: string; // ID cuộc hội thoại trên nền tảng gốc
+  platformMessageId: string; // ID tin nhắn trên nền tảng gốc
   senderType: SenderType;
   senderName: string;
-  senderId?: string;            // ID người gửi trên nền tảng gốc
+  senderId?: string; // ID người gửi trên nền tảng gốc
   messageType: MessageType;
-  text?: string;                // Nội dung văn bản
-  mediaUrl?: string;            // URL file/ảnh nếu có
+  text?: string; // Nội dung văn bản
+  mediaUrl?: string; // URL file/ảnh nếu có
   metadata?: Record<string, any>; // Dữ liệu bổ sung tùy nền tảng
   timestamp: Date;
 }
@@ -34,5 +34,20 @@ export interface IChatAdapter {
   parseIncomingWebhook(payload: any): Promise<IStandardMessage | null>;
 
   /** Gửi tin nhắn chuẩn hóa đến nền tảng đích */
-  sendMessage(destinationThreadId: string, message: IStandardMessage): Promise<boolean>;
+  sendMessage(
+    destinationThreadId: string,
+    message: IStandardMessage,
+  ): Promise<boolean>;
+}
+
+/**
+ * Interface cho bất kỳ component nào muốn nhận tin nhắn từ Hub
+ * để hiển thị cho agent (ví dụ: WebSocket Gateway, SSE endpoint...).
+ *
+ * Bất kỳ component nào implement interface này đều có thể
+ * đăng ký với ChatHubService để nhận broadcast khi có tin nhắn mới.
+ */
+export interface IAgentNotifier {
+  /** Thông báo cho agents về tin nhắn mới từ khách hàng */
+  notifyAgents(message: IStandardMessage): void;
 }

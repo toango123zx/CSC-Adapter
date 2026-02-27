@@ -9,13 +9,15 @@ import { SenderType, MessageType } from '../../common/enums';
 export class ChatHubController {
   constructor(private readonly chatHubService: ChatHubService) { }
 
+  /**
+   * Gửi tin nhắn đến khách hàng qua đúng nền tảng.
+   * Platform trong DTO xác định nền tảng đích (Telegram / LiveChat).
+   */
   @Post('send')
-  @ApiOperation({ summary: 'Gửi tin nhắn đến Khách hàng qua API' })
+  @ApiOperation({ summary: 'Gửi tin nhắn đến Khách hàng qua đúng nền tảng' })
   @ApiResponse({ status: 201, description: 'Đã gửi tin nhắn thành công' })
   @ApiResponse({ status: 400, description: 'Lỗi dữ liệu đầu vào' })
   async sendMessage(@Body() dto: SendMessageDto) {
-    const adapter = this.chatHubService.getAdapter(dto.platform);
-
     const message = {
       platform: dto.platform,
       platformThreadId: dto.threadId,
@@ -28,7 +30,12 @@ export class ChatHubController {
       timestamp: new Date(),
     };
 
-    const result = await adapter.sendMessage(dto.threadId, message);
+    // Sử dụng routeToCustomer() — route đến đúng platform
+    const result = await this.chatHubService.routeToCustomer(
+      dto.platform,
+      dto.threadId,
+      message,
+    );
 
     return {
       success: result,

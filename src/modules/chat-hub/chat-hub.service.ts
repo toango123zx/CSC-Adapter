@@ -1,16 +1,22 @@
 // src/modules/chat-hub/chat-hub.service.ts
+// Hub trung tâm — Tập trung tin nhắn từ các nền tảng và phân phối cho agents
 import { Injectable, Logger } from '@nestjs/common';
-import { IChatAdapter, IStandardMessage } from 'src/common/interfaces/standard-message.interface';
+import {
+  IChatAdapter,
+  IStandardMessage,
+  IAgentNotifier,
+} from 'src/common/interfaces/standard-message.interface';
 import { Platform, SenderType, MessageType } from 'src/common/enums';
 
 @Injectable()
 export class ChatHubService {
   private readonly logger = new Logger(ChatHubService.name);
-  private adapters: Map<Platform, IChatAdapter> = new Map();
+  private readonly adapters: Map<Platform, IChatAdapter> = new Map();
+  private readonly notifiers: IAgentNotifier[] = [];
 
   // ============ ĐĂNG KÝ ADAPTER ============
 
-  registerAdapter(platform: Platform, adapter: IChatAdapter) {
+  registerAdapter(platform: Platform, adapter: IChatAdapter): void {
     this.adapters.set(platform, adapter);
     this.logger.log(`✅ Đã đăng ký adapter: ${platform}`);
   }
@@ -25,44 +31,86 @@ export class ChatHubService {
     return Array.from(this.adapters.keys());
   }
 
-  // ============ LOGIC ĐỊNH TUYẾN ============
+  // ============ ĐĂNG KÝ NOTIFIER ============
 
   /**
-   * Xử lý tin nhắn đến từ bất kỳ adapter nào
-   * Routing: Telegram → LiveChat, LiveChat → Telegram
+   * Đăng ký một notifier để nhận broadcast khi có tin nhắn mới.
+   * Ví dụ: WebSocket Gateway đăng ký để push tin nhắn đến agent UI.
    */
-  async handleIncomingMessage(message: IStandardMessage) {
+  registerNotifier(notifier: IAgentNotifier): void {
+    this.notifiers.push(notifier);
+    this.logger.log(`✅ Đã đăng ký agent notifier (total: ${this.notifiers.length})`);
+  }
+
+  // ============ LUỒNG 1: KHÁCH HÀNG → AGENTS ============
+
+  /**
+   * Xử lý tin nhắn ĐẾN từ khách hàng (Telegram, LiveChat, ...).
+   * Tin nhắn sẽ được broadcast đến tất cả agents đã đăng ký.
+   *
+   * ⚠️ KHÔNG gọi method này cho agent reply!
+   * Agent reply phải dùng routeToCustomer().
+   */
+  async handleIncomingMessage(message: IStandardMessage): Promise<void> {
     this.logger.log(
       `📩 [${message.platform}] ${message.senderName} (${message.senderType}): ${message.text || '[media]'}`,
     );
 
-    try {
-      if (message.platform === Platform.TELEGRAM) {
-        // Khách nhắn từ Telegram → Chuyển tiếp sang Livechat cho nhân viên
-        const livechatAdapter = this.getAdapter(Platform.LIVECHAT);
-        await livechatAdapter.sendMessage(message.platformThreadId, message);
-        this.logger.log(`📤 Đã chuyển tin từ Telegram → LiveChat (thread: ${message.platformThreadId})`);
-      } else if (message.platform === Platform.LIVECHAT) {
-        // Nhân viên trả lời từ Livechat → Gửi về Telegram cho khách
-        const telegramAdapter = this.getAdapter(Platform.TELEGRAM);
-        await telegramAdapter.sendMessage(message.platformThreadId, message);
-        this.logger.log(`📤 Đã chuyển tin từ LiveChat → Telegram (thread: ${message.platformThreadId})`);
+    // Broadcast đến tất cả agents đã đăng ký (Gateway, SSE, etc.)
+    for (const notifier of this.notifiers) {
+      try {
+        notifier.notifyAgents(message);
+      } catch (error: unknown) {
+        const errorMsg = error instanceof Error ? error.message : 'Unknown error';
+        this.logger.error(`❌ Lỗi broadcast đến agent notifier: ${errorMsg}`);
       }
-    } catch (error) {
-      this.logger.error(`❌ Lỗi định tuyến tin nhắn: ${error.message}`);
     }
   }
 
+  // ============ LUỒNG 2: AGENT → KHÁCH HÀNG ============
+
   /**
-   * Gửi tin nhắn chủ động từ API (không qua adapter)
+   * Route tin nhắn từ agent ĐẾN khách hàng trên đúng nền tảng.
+   * Platform và threadId xác định khách hàng nào trên nền tảng nào.
+   *
+   * @param platform - Nền tảng gốc của khách hàng (TELEGRAM / LIVECHAT)
+   * @param threadId - ID cuộc hội thoại trên nền tảng gốc
+   * @param message  - Tin nhắn chuẩn hóa cần gửi
    */
-  async sendDirectMessage(
+  async routeToCustomer(
+    platform: Platform,
+    threadId: string,
+    message: IStandardMessage,
+  ): Promise<boolean> {
+    try {
+      const adapter = this.getAdapter(platform);
+      const result = await adapter.sendMessage(threadId, message);
+
+      this.logger.log(
+        `📤 Đã gửi tin nhắn đến ${platform} (thread: ${threadId})`,
+      );
+      return result;
+    } catch (error: unknown) {
+      const errorMsg = error instanceof Error ? error.message : 'Unknown error';
+      this.logger.error(
+        `❌ Lỗi gửi đến ${platform} (thread: ${threadId}): ${errorMsg}`,
+      );
+      return false;
+    }
+  }
+
+  // ============ TIỆN ÍCH ============
+
+  /**
+   * Gửi tin nhắn hệ thống trực tiếp đến khách hàng.
+   * Dùng cho thông báo tự động, welcome message, etc.
+   */
+  async sendSystemMessage(
     platform: Platform,
     threadId: string,
     text: string,
     senderName = 'System',
   ): Promise<boolean> {
-    const adapter = this.getAdapter(platform);
     const message: IStandardMessage = {
       platform,
       platformThreadId: threadId,
@@ -73,6 +121,6 @@ export class ChatHubService {
       text,
       timestamp: new Date(),
     };
-    return adapter.sendMessage(threadId, message);
+    return this.routeToCustomer(platform, threadId, message);
   }
 }
