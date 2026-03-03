@@ -5,12 +5,25 @@ import { TelegramService } from './telegram.service';
 import { TelegramClientService } from './telegram-client.service';
 import { TelegramStoreService } from './telegram-store.service';
 import { TelegramAdapter } from './telegram.adapter';
+import { TelegramWebhookHandler } from './telegram-webhook.handler';
 import { TelegramController } from './telegram.controller';
 
 @Module({
   imports: [ConfigModule],
   controllers: [TelegramController],
-  providers: [TelegramService, TelegramClientService, TelegramStoreService, TelegramAdapter],
-  exports: [TelegramService, TelegramClientService, TelegramStoreService, TelegramAdapter],
+  providers: [
+    TelegramService,
+    TelegramClientService,
+    TelegramStoreService,
+    TelegramAdapter,
+    TelegramWebhookHandler,
+  ],
+  exports: [
+    TelegramService,
+    TelegramClientService,
+    TelegramStoreService,
+    TelegramAdapter,
+    TelegramWebhookHandler,
+  ],
 })
 export class TelegramModule { }

@@ -1,0 +1,798 @@
+# 📘 CSC-Adapter — Tài Liệu Kỹ Thuật Toàn Diện
+
+> **Hệ thống**: Omnichannel Chat Adapter (NestJS)
+> **Phiên bản**: 0.0.1
+> **Cập nhật**: 2026-02-28
+> **Mục đích**: Hub trung tâm điều phối tin nhắn đa nền tảng (Telegram, LiveChat, mở rộng thêm)
+
+---
+
+## Mục Lục
+
+1. [Kiến Trúc Hệ Thống](#1-kiến-trúc-hệ-thống)
+2. [Hướng Dẫn Setup Từ Đầu](#2-hướng-dẫn-setup-từ-đầu)
+3. [Chuẩn Code & Quy Tắc Đặt Tên](#3-chuẩn-code--quy-tắc-đặt-tên)
+4. [Các Rule Bắt Buộc, Nên Áp Dụng & Bổ Sung](#4-các-rule-ràng-buộc)
+5. [Pipeline Hoạt Động Chi Tiết](#5-pipeline-hoạt-động-chi-tiết)
+6. [Đánh Giá Resource & Phương Án Cải Thiện](#6-đánh-giá-resource--phương-án-cải-thiện)
+7. [Chiến Lược Mở Rộng Hệ Thống](#7-chiến-lược-mở-rộng-hệ-thống)
+
+---
+
+## 1. Kiến Trúc Hệ Thống
+
+### 1.1 Sơ Đồ Tổng Quan
+
+```mermaid
+graph TB
+    subgraph External["🌐 Bên Ngoài"]
+        TG["Telegram API"]
+        LC["LiveChat API"]
+        FUTURE["Zalo / Facebook / ..."]
+    end
+
+    subgraph Webhook["📡 Webhook Layer"]
+        WGC["WebhookGatewayController<br/>POST /webhook/:platform"]
+        WRS["WebhookRegistryService<br/>Map&lt;platform, handler&gt;"]
+    end
+
+    subgraph Adapters["🔌 Adapter Layer"]
+        TWH["TelegramWebhookHandler<br/>IWebhookHandler"]
+        LWH["LivechatWebhookHandler<br/>IWebhookHandler"]
+        TA["TelegramAdapter<br/>IChatAdapter"]
+        LA["LivechatAdapter<br/>IChatAdapter"]
+        TS["TelegramService<br/>Telegraf Bot"]
+        LAS["LivechatApiService<br/>HTTP Client"]
+    end
+
+    subgraph Core["🧠 Core Layer"]
+        CHS["ChatHubService<br/>Central Message Hub"]
+    end
+
+    subgraph Agent["👤 Agent Layer"]
+        AG["AgentGateway<br/>WebSocket /agent"]
+        CHC["ChatHubController<br/>REST /chat"]
+    end
+
+    subgraph AgentUI["🖥️ Agent UI"]
+        WS["WebSocket Client"]
+        REST["REST Client"]
+    end
+
+    TG -->|webhook| WGC
+    LC -->|webhook| WGC
+    FUTURE -.->|webhook| WGC
+
+    WGC --> WRS
+    WRS --> TWH
+    WRS --> LWH
+
+    TWH --> TA
+    LWH --> LA
+    TA --> CHS
+    LA --> CHS
+
+    TA --> TS
+    LA --> LAS
+    TS --> TG
+    LAS --> LC
+
+    CHS -->|broadcast| AG
+    CHS --> CHC
+
+    AG --> WS
+    CHC --> REST
+
+    WS -->|agent_reply| AG
+    REST -->|POST /chat/send| CHC
+    AG -->|routeToCustomer| CHS
+    CHC -->|routeToCustomer| CHS
+    CHS -->|sendMessage| TA
+    CHS -->|sendMessage| LA
+```
+
+### 1.2 Giải Thích Từng Tầng
+
+| Tầng | Module | Vai Trò | File Chính |
+|------|--------|---------|------------|
+| **Webhook** | [WebhookModule](file:///d:/The%20Black%20Ants/CSC/CSC-Adapter/src/modules/webhook/webhook.module.ts#8-15) | Single entry point nhận webhook từ MỌI nền tảng qua `POST /webhook/:platform` | [webhook-gateway.controller.ts](file:///d:/The%20Black%20Ants/CSC/CSC-Adapter/src/modules/webhook/webhook-gateway.controller.ts), [webhook-registry.service.ts](file:///d:/The%20Black%20Ants/CSC/CSC-Adapter/src/modules/webhook/webhook-registry.service.ts) |
+| **Adapter** | [TelegramModule](file:///d:/The%20Black%20Ants/CSC/CSC-Adapter/src/modules/adapters/telegram/telegram.module.ts#11-30), [LivechatModule](file:///d:/The%20Black%20Ants/CSC/CSC-Adapter/src/modules/adapters/livechat/livechat.module.ts#9-16) | Chuyển đổi giữa format nền tảng ↔ [IStandardMessage](file:///d:/The%20Black%20Ants/CSC/CSC-Adapter/src/common/interfaces/standard-message.interface.ts#11-24). Mỗi adapter gồm: Handler + Adapter + Service | [telegram.adapter.ts](file:///d:/The%20Black%20Ants/CSC/CSC-Adapter/src/modules/adapters/telegram/telegram.adapter.ts), [livechat.adapter.ts](file:///d:/The%20Black%20Ants/CSC/CSC-Adapter/src/modules/adapters/livechat/livechat.adapter.ts) |
+| **Core** | [ChatHubModule](file:///d:/The%20Black%20Ants/CSC/CSC-Adapter/src/modules/chat-hub/chat-hub.module.ts#5-12) | Hub trung tâm: nhận tin nhắn → broadcast cho agents, route reply → đúng nền tảng | [chat-hub.service.ts](file:///d:/The%20Black%20Ants/CSC/CSC-Adapter/src/modules/chat-hub/chat-hub.service.ts) |
+| **Agent** | [AgentGatewayModule](file:///d:/The%20Black%20Ants/CSC/CSC-Adapter/src/modules/agent-gateway/agent-gateway.module.ts#5-10) | WebSocket Gateway push tin nhắn real-time đến Agent UI | [agent.gateway.ts](file:///d:/The%20Black%20Ants/CSC/CSC-Adapter/src/modules/agent-gateway/agent.gateway.ts) |
+
+### 1.3 Design Patterns Được Áp Dụng
+
+| Pattern | Nơi áp dụng | Giải thích |
+|---------|-------------|------------|
+| **Registry** | [WebhookRegistryService](file:///d:/The%20Black%20Ants/CSC/CSC-Adapter/src/modules/webhook/webhook-registry.service.ts#7-57), [ChatHubService](file:///d:/The%20Black%20Ants/CSC/CSC-Adapter/src/modules/chat-hub/chat-hub.service.ts#11-127) | Map lưu trữ handler/adapter theo platform key. Thêm platform mới chỉ cần [register()](file:///d:/The%20Black%20Ants/CSC/CSC-Adapter/src/modules/webhook/webhook-registry.service.ts#12-26), không sửa core |
+| **Strategy** | [IWebhookHandler](file:///d:/The%20Black%20Ants/CSC/CSC-Adapter/src/common/interfaces/standard-message.interface.ts#78-93) | Mỗi platform có handler riêng xử lý webhook theo cách riêng. Controller chọn đúng strategy qua registry |
+| **Adapter** | [IChatAdapter](file:///d:/The%20Black%20Ants/CSC/CSC-Adapter/src/common/interfaces/standard-message.interface.ts#30-42) | Chuyển đổi format nền tảng → format chuẩn ([IStandardMessage](file:///d:/The%20Black%20Ants/CSC/CSC-Adapter/src/common/interfaces/standard-message.interface.ts#11-24)). Cách ly logic platform khỏi core |
+| **Observer** | [IAgentNotifier](file:///d:/The%20Black%20Ants/CSC/CSC-Adapter/src/common/interfaces/standard-message.interface.ts#50-54) | Hub broadcast tin nhắn đến tất cả notifier đã đăng ký (WebSocket, SSE, ...) |
+| **Hub-and-Spoke** | Toàn bộ kiến trúc | Mọi tin nhắn đều đi qua Hub trung tâm, không giao tiếp trực tiếp giữa các adapter |
+
+### 1.4 Vì Sao Áp Dụng Kiến Trúc Này?
+
+**Open/Closed Principle**: Thêm platform mới (Zalo, Facebook, ...) chỉ cần tạo module adapter mới, implement [IChatAdapter](file:///d:/The%20Black%20Ants/CSC/CSC-Adapter/src/common/interfaces/standard-message.interface.ts#30-42) + [IWebhookHandler](file:///d:/The%20Black%20Ants/CSC/CSC-Adapter/src/common/interfaces/standard-message.interface.ts#78-93), đăng ký qua [onModuleInit()](file:///d:/The%20Black%20Ants/CSC/CSC-Adapter/src/modules/adapters/telegram/telegram.adapter.ts#37-43) — **KHÔNG sửa bất kỳ code core nào**.
+
+**Ưu điểm:**
+- ✅ **Tách biệt hoàn toàn** giữa các platform — mỗi adapter là module độc lập
+- ✅ **Dễ mở rộng** — thêm adapter mới trong 30 phút, không ảnh hưởng code hiện tại
+- ✅ **Single entry point** cho webhook — 1 URL pattern `/webhook/:platform` thay vì N controller riêng
+- ✅ **Message format thống nhất** — [IStandardMessage](file:///d:/The%20Black%20Ants/CSC/CSC-Adapter/src/common/interfaces/standard-message.interface.ts#11-24) là lingua franca, mọi component nói cùng ngôn ngữ
+- ✅ **Real-time** — WebSocket cho agent UI, nhận tin nhắn tức thì
+- ✅ **Testable** — mỗi layer test độc lập, mock interface dễ dàng
+
+**Nhược điểm:**
+
+| Nhược Điểm | Mức Độ | Cách Khắc Phục | Khi Nào Áp Dụng |
+|------------|--------|---------------|-----------------|
+| Hub là **Single Point of Failure** | 🔴 Cao | Message Queue (BullMQ/RabbitMQ) giữa webhook → hub | Khi có > 1000 msg/phút hoặc cần HA |
+| Dữ liệu **lưu in-memory** (Map) | 🔴 Cao | Thêm Database layer (PostgreSQL + Prisma/TypeORM) | **Ngay lập tức** — data mất khi restart |
+| Không có **Authentication** | 🔴 Cao | JWT Guard + RBAC cho API/WebSocket | **Ngay lập tức** — API đang mở hoàn toàn |
+| Không có **Error Recovery** | 🟡 Trung bình | Dead Letter Queue + Retry mechanism | Khi hệ thống vào production |
+| Không có **Rate Limiting** | 🟡 Trung bình | `@nestjs/throttler` hoặc custom guard | Khi expose public API |
+| Chưa có **Health Check** | 🟡 Trung bình | `@nestjs/terminus` + health endpoint | Trước khi deploy production |
+| **Logging** chưa structured | 🟢 Thấp | Winston/Pino + JSON format + log level | Khi cần observability (ELK/Loki) |
+
+---
+
+## 2. Hướng Dẫn Setup Từ Đầu
+
+### Bước 1: Khởi Tạo Project NestJS
+
+```bash
+# 1. Tạo project NestJS mới
+npx -y @nestjs/cli new CSC-Adapter --package-manager pnpm --strict
+
+# 2. Cài dependencies core
+pnpm add @nestjs/config @nestjs/swagger @nestjs/platform-socket.io @nestjs/websockets
+pnpm add class-validator class-transformer socket.io reflect-metadata rxjs
+
+# 3. Cài dependencies cho platforms
+pnpm add telegraf telegram pg @prisma/client @prisma/adapter-pg
+
+# 4. Cài devDependencies
+pnpm add -D prisma @types/pg tsx
+```
+
+**Vì sao set trước?**
+- NestJS CLI tạo sẵn cấu trúc chuẩn (module/controller/service pattern)
+- `@nestjs/config` → quản lý env vars an toàn, **phải có trước khi code bất kỳ service nào**
+- `class-validator` + `class-transformer` → validation DTO ngay từ đầu, tránh refactor sau
+
+**Ưu điểm**: Foundation vững chắc, DI container sẵn, TypeScript strict mode
+**Nhược điểm**: Learning curve cho người mới NestJS; boilerplate nhiều hơn Express thuần
+
+### Bước 2: Cấu Hình Tooling
+
+```
+CSC-Adapter/
+├── .eslintrc.js        ← ESLint + TypeScript rules
+├── .prettierrc          ← Code formatting
+├── tsconfig.json        ← TypeScript compiler options
+├── nest-cli.json        ← NestJS build config
+└── .env.example         ← Template env vars
+```
+
+**Cấu hình [.prettierrc](file:///d:/The%20Black%20Ants/CSC/CSC-Adapter/.prettierrc):**
+```json
+{
+  "singleQuote": true,
+  "trailingComma": "all"
+}
+```
+
+**Cấu hình [.eslintrc.js](file:///d:/The%20Black%20Ants/CSC/CSC-Adapter/.eslintrc.js):**
+```js
+module.exports = {
+  parser: '@typescript-eslint/parser',
+  extends: ['plugin:@typescript-eslint/recommended', 'plugin:prettier/recommended'],
+  rules: {
+    '@typescript-eslint/no-explicit-any': 'warn', // Warn any, không error
+    '@typescript-eslint/explicit-function-return-type': 'off',
+  },
+};
+```
+
+**Cấu hình [tsconfig.json](file:///d:/The%20Black%20Ants/CSC/CSC-Adapter/tsconfig.json):**
+```json
+{
+  "compilerOptions": {
+    "strict": true,                        // Bắt buộc — bắt lỗi sớm
+    "forceConsistentCasingInFileNames": true, // Tránh lỗi trên Linux deploy
+    "noFallthroughCasesInSwitch": true,      // Bắt switch không break
+    "emitDecoratorMetadata": true,            // NestJS DI cần
+    "experimentalDecorators": true            // NestJS decorators
+  }
+}
+```
+
+**Vì sao set trước service code?**
+- Đảm bảo MỌI code viết sau đều tuân theo 1 chuẩn
+- Tránh "nợ kỹ thuật" format — sau này refactor toàn bộ rất tốn thời gian
+- `strict: true` bắt lỗi null/undefined ngay lúc compile, tiết kiệm debug time
+
+### Bước 3: Tạo Common Layer (Interfaces + Enums)
+
+> ⚠️ **PHẢI tạo trước mọi module khác** — đây là "ngôn ngữ chung" của hệ thống
+
+```
+src/common/
+├── enums/
+│   └── index.ts            ← Platform, SenderType, MessageType
+├── interfaces/
+│   ├── standard-message.interface.ts  ← IStandardMessage, IChatAdapter, IWebhookHandler, IAgentNotifier
+│   └── api-response.interface.ts      ← ApiResponse<T>
+└── constants/
+    └── livechat.constants.ts          ← API URLs, webhook actions
+```
+
+**Vì sao phải set trước?**
+- [IStandardMessage](file:///d:/The%20Black%20Ants/CSC/CSC-Adapter/src/common/interfaces/standard-message.interface.ts#11-24) là **contract bắt buộc** — mọi adapter phải nói cùng ngôn ngữ
+- [IChatAdapter](file:///d:/The%20Black%20Ants/CSC/CSC-Adapter/src/common/interfaces/standard-message.interface.ts#30-42) + [IWebhookHandler](file:///d:/The%20Black%20Ants/CSC/CSC-Adapter/src/common/interfaces/standard-message.interface.ts#78-93) → interface-first design, code module nào cũng biết phải implement gì
+- Giảm coupling: modules phụ thuộc vào interface, không phụ thuộc vào nhau
+
+**Ưu điểm**: Type safety, contract rõ ràng, refactor an toàn
+**Nhược điểm**: Phải maintain interfaces khi thêm field mới
+**Khắc phục**: Dùng `metadata?: Record<string, any>` cho dữ liệu optional/platform-specific (đã áp dụng)
+
+### Bước 4: Tạo Core — ChatHubModule
+
+```
+src/modules/chat-hub/
+├── chat-hub.module.ts      ← @Global() module
+├── chat-hub.service.ts     ← Hub trung tâm
+├── chat-hub.controller.ts  ← REST API /chat
+└── dto/
+    └── send-message.dto.ts ← Validation DTO
+```
+
+**Vì sao set trước adapter?**
+- Hub là **trung tâm** — mọi adapter đều phụ thuộc Hub, Hub không phụ thuộc adapter
+- `@Global()` → inject được từ mọi module mà không cần import
+- Dependency direction: `Adapter → Hub`, **KHÔNG BAO GIỜ** `Hub → Adapter`
+
+### Bước 5: Tạo WebhookModule
+
+```
+src/modules/webhook/
+├── webhook.module.ts             ← @Global()
+├── webhook-registry.service.ts   ← Registry Pattern
+├── webhook-gateway.controller.ts ← POST /webhook/:platform
+└── index.ts                      ← Barrel export
+```
+
+**Vì sao set trước adapter?**
+- Webhook module cung cấp [WebhookRegistryService](file:///d:/The%20Black%20Ants/CSC/CSC-Adapter/src/modules/webhook/webhook-registry.service.ts#7-57) — adapter cần inject để tự đăng ký
+- Single entry point design — tất cả webhook đi vào 1 controller, không tạo controller riêng mỗi platform
+
+### Bước 6: Tạo AgentGatewayModule
+
+```
+src/modules/agent-gateway/
+├── agent-gateway.module.ts  ← Module wrapper
+└── agent.gateway.ts         ← WebSocket Gateway, implement IAgentNotifier
+```
+
+**Vì sao set trước adapter?**
+- Gateway đăng ký làm [IAgentNotifier](file:///d:/The%20Black%20Ants/CSC/CSC-Adapter/src/common/interfaces/standard-message.interface.ts#50-54) với Hub trong [onModuleInit()](file:///d:/The%20Black%20Ants/CSC/CSC-Adapter/src/modules/adapters/telegram/telegram.adapter.ts#37-43)
+- Phải có trước để khi adapter đẩy message vào Hub, agent nhận được ngay
+
+### Bước 7: Tạo Adapter Modules
+
+```
+src/modules/adapters/
+├── telegram/
+│   ├── telegram.module.ts
+│   ├── telegram.adapter.ts           ← IChatAdapter
+│   ├── telegram-webhook.handler.ts   ← IWebhookHandler
+│   ├── telegram.service.ts           ← Telegraf bot logic
+│   ├── telegram-client.service.ts    ← MTProto client
+│   ├── telegram-store.service.ts     ← In-memory message store
+│   ├── telegram.controller.ts        ← REST management API
+│   ├── telegram.types.ts             ← Type definitions
+│   ├── dto/
+│   │   ├── telegram.dto.ts
+│   │   └── telegram-mtproto.dto.ts
+│   └── scripts/
+│       └── generate-session.ts
+└── livechat/
+    ├── livechat.module.ts
+    ├── livechat.adapter.ts            ← IChatAdapter
+    ├── livechat-webhook.handler.ts    ← IWebhookHandler
+    ├── livechat-api.service.ts        ← HTTP client cho LiveChat API
+    ├── livechat-management.controller.ts ← REST management API
+    ├── livechat-api.types.ts          ← Type definitions
+    └── dto/
+        └── livechat.dto.ts
+```
+
+**Mỗi adapter module PHẢI có:**
+1. **Adapter** ([IChatAdapter](file:///d:/The%20Black%20Ants/CSC/CSC-Adapter/src/common/interfaces/standard-message.interface.ts#30-42)) — parse webhook → [IStandardMessage](file:///d:/The%20Black%20Ants/CSC/CSC-Adapter/src/common/interfaces/standard-message.interface.ts#11-24), send message → platform
+2. **WebhookHandler** ([IWebhookHandler](file:///d:/The%20Black%20Ants/CSC/CSC-Adapter/src/common/interfaces/standard-message.interface.ts#78-93)) — xử lý webhook, gọi adapter + hub
+3. **Service** — logic riêng platform (API calls, bot management)
+4. **DTOs** — validation cho REST endpoints
+5. **Types** — platform-specific type definitions
+
+### Bước 8: Wire Everything — AppModule
+
+```typescript
+@Module({
+  imports: [
+    ConfigModule.forRoot({ isGlobal: true }), // ← Load .env, global access
+
+    // Core — load trước
+    ChatHubModule,
+    WebhookModule,
+    AgentGatewayModule,
+
+    // Adapters — mỗi adapter tự đăng ký với Hub + WebhookRegistry
+    TelegramModule,
+    LivechatModule,
+  ],
+})
+export class AppModule {}
+```
+
+> [!IMPORTANT]
+> **Thứ tự import quan trọng**: Core modules ([ChatHubModule](file:///d:/The%20Black%20Ants/CSC/CSC-Adapter/src/modules/chat-hub/chat-hub.module.ts#5-12), [WebhookModule](file:///d:/The%20Black%20Ants/CSC/CSC-Adapter/src/modules/webhook/webhook.module.ts#8-15)) phải được khai báo trước Adapter modules vì adapter cần inject service từ core trong [onModuleInit()](file:///d:/The%20Black%20Ants/CSC/CSC-Adapter/src/modules/adapters/telegram/telegram.adapter.ts#37-43).
+
+---
+
+## 3. Chuẩn Code & Quy Tắc Đặt Tên
+
+### 3.1 Đặt Tên File
+
+| Loại | Pattern | Ví dụ |
+|------|---------|-------|
+| Module | `<feature>.module.ts` | [telegram.module.ts](file:///d:/The%20Black%20Ants/CSC/CSC-Adapter/src/modules/adapters/telegram/telegram.module.ts), [chat-hub.module.ts](file:///d:/The%20Black%20Ants/CSC/CSC-Adapter/src/modules/chat-hub/chat-hub.module.ts) |
+| Service | `<feature>.service.ts` hoặc `<feature>-<sub>.service.ts` | [telegram.service.ts](file:///d:/The%20Black%20Ants/CSC/CSC-Adapter/src/modules/adapters/telegram/telegram.service.ts), [livechat-api.service.ts](file:///d:/The%20Black%20Ants/CSC/CSC-Adapter/src/modules/adapters/livechat/livechat-api.service.ts) |
+| Controller | `<feature>.controller.ts` hoặc `<feature>-<role>.controller.ts` | [chat-hub.controller.ts](file:///d:/The%20Black%20Ants/CSC/CSC-Adapter/src/modules/chat-hub/chat-hub.controller.ts), [livechat-management.controller.ts](file:///d:/The%20Black%20Ants/CSC/CSC-Adapter/src/modules/adapters/livechat/livechat-management.controller.ts) |
+| Adapter | `<platform>.adapter.ts` | [telegram.adapter.ts](file:///d:/The%20Black%20Ants/CSC/CSC-Adapter/src/modules/adapters/telegram/telegram.adapter.ts), [livechat.adapter.ts](file:///d:/The%20Black%20Ants/CSC/CSC-Adapter/src/modules/adapters/livechat/livechat.adapter.ts) |
+| Handler | `<platform>-webhook.handler.ts` | [telegram-webhook.handler.ts](file:///d:/The%20Black%20Ants/CSC/CSC-Adapter/src/modules/adapters/telegram/telegram-webhook.handler.ts) |
+| DTO | `<feature>.dto.ts` | [livechat.dto.ts](file:///d:/The%20Black%20Ants/CSC/CSC-Adapter/src/modules/adapters/livechat/dto/livechat.dto.ts), [send-message.dto.ts](file:///d:/The%20Black%20Ants/CSC/CSC-Adapter/src/modules/chat-hub/dto/send-message.dto.ts) |
+| Interface | `<concept>.interface.ts` | [standard-message.interface.ts](file:///d:/The%20Black%20Ants/CSC/CSC-Adapter/src/common/interfaces/standard-message.interface.ts), [api-response.interface.ts](file:///d:/The%20Black%20Ants/CSC/CSC-Adapter/src/common/interfaces/api-response.interface.ts) |
+| Types | `<feature>.types.ts` | [telegram.types.ts](file:///d:/The%20Black%20Ants/CSC/CSC-Adapter/src/modules/adapters/telegram/telegram.types.ts), [livechat-api.types.ts](file:///d:/The%20Black%20Ants/CSC/CSC-Adapter/src/modules/adapters/livechat/livechat-api.types.ts) |
+| Constants | `<feature>.constants.ts` | [livechat.constants.ts](file:///d:/The%20Black%20Ants/CSC/CSC-Adapter/src/common/constants/livechat.constants.ts) |
+| Enum file | [index.ts](file:///d:/The%20Black%20Ants/CSC/CSC-Adapter/src/common/enums/index.ts) (barrel export) | [common/enums/index.ts](file:///d:/The%20Black%20Ants/CSC/CSC-Adapter/src/common/enums/index.ts) |
+
+### 3.2 Đặt Tên Class & Interface
+
+| Loại | Pattern | Ví dụ |
+|------|---------|-------|
+| Module | `<Feature>Module` | [TelegramModule](file:///d:/The%20Black%20Ants/CSC/CSC-Adapter/src/modules/adapters/telegram/telegram.module.ts#11-30), [ChatHubModule](file:///d:/The%20Black%20Ants/CSC/CSC-Adapter/src/modules/chat-hub/chat-hub.module.ts#5-12) |
+| Service | `<Feature>Service` | [ChatHubService](file:///d:/The%20Black%20Ants/CSC/CSC-Adapter/src/modules/chat-hub/chat-hub.service.ts#11-127), [LivechatApiService](file:///d:/The%20Black%20Ants/CSC/CSC-Adapter/src/modules/adapters/livechat/livechat-api.service.ts#15-371) |
+| Controller | `<Feature>Controller` | [ChatHubController](file:///d:/The%20Black%20Ants/CSC/CSC-Adapter/src/modules/chat-hub/chat-hub.controller.ts#7-54), [WebhookGatewayController](file:///d:/The%20Black%20Ants/CSC/CSC-Adapter/src/modules/webhook/webhook-gateway.controller.ts#19-93) |
+| Adapter | `<Platform>Adapter` | [TelegramAdapter](file:///d:/The%20Black%20Ants/CSC/CSC-Adapter/src/modules/adapters/telegram/telegram.adapter.ts#24-325), [LivechatAdapter](file:///d:/The%20Black%20Ants/CSC/CSC-Adapter/src/modules/adapters/livechat/livechat.adapter.ts#16-214) |
+| Handler | `<Platform>WebhookHandler` | [TelegramWebhookHandler](file:///d:/The%20Black%20Ants/CSC/CSC-Adapter/src/modules/adapters/telegram/telegram-webhook.handler.ts#14-73) |
+| Gateway | `<Feature>Gateway` | [AgentGateway](file:///d:/The%20Black%20Ants/CSC/CSC-Adapter/src/modules/agent-gateway/agent.gateway.ts#21-194) |
+| DTO | `<Action><Feature>Dto` | [SendMessageDto](file:///d:/The%20Black%20Ants/CSC/CSC-Adapter/src/modules/chat-hub/dto/send-message.dto.ts#5-53), [RegisterWebhookDto](file:///d:/The%20Black%20Ants/CSC/CSC-Adapter/src/modules/adapters/livechat/dto/livechat.dto.ts#153-184) |
+| Interface | `I<Concept>` | [IChatAdapter](file:///d:/The%20Black%20Ants/CSC/CSC-Adapter/src/common/interfaces/standard-message.interface.ts#30-42), [IStandardMessage](file:///d:/The%20Black%20Ants/CSC/CSC-Adapter/src/common/interfaces/standard-message.interface.ts#11-24), [IWebhookHandler](file:///d:/The%20Black%20Ants/CSC/CSC-Adapter/src/common/interfaces/standard-message.interface.ts#78-93) |
+| Enum | `PascalCase` (giá trị SCREAMING_SNAKE) | `Platform.TELEGRAM`, `SenderType.AGENT` |
+| Type | `<Feature><Concept>` | [TelegramChatType](file:///d:/The%20Black%20Ants/CSC/CSC-Adapter/src/modules/adapters/telegram/telegram.types.ts#66-67), [AgentRoutingStatus](file:///d:/The%20Black%20Ants/CSC/CSC-Adapter/src/modules/adapters/livechat/livechat-api.types.ts#24-28) |
+
+### 3.3 Đặt Tên Biến & Method
+
+| Loại | Pattern | Ví dụ |
+|------|---------|-------|
+| Private field | `private readonly <name>` | `private readonly logger`, `private readonly handlers` |
+| Logger | `new Logger(<ClassName>.name)` | `new Logger(ChatHubService.name)` |
+| Map/Registry | `Map<Key, Value>` | `Map<Platform, IChatAdapter>` |
+| Handler method | `handle<Event>()` | [handleIncomingMessage()](file:///d:/The%20Black%20Ants/CSC/CSC-Adapter/src/modules/chat-hub/chat-hub.service.ts#47-69), [handleWebhook()](file:///d:/The%20Black%20Ants/CSC/CSC-Adapter/src/modules/adapters/livechat/livechat-webhook.handler.ts#31-80) |
+| Parse method | `parse<Type>Message()` | [parseTextMessage()](file:///d:/The%20Black%20Ants/CSC/CSC-Adapter/src/modules/adapters/telegram/telegram.adapter.ts#198-213), [parsePhotoMessage()](file:///d:/The%20Black%20Ants/CSC/CSC-Adapter/src/modules/adapters/telegram/telegram.adapter.ts#214-237) |
+| Register method | `register<What>()` | [registerAdapter()](file:///d:/The%20Black%20Ants/CSC/CSC-Adapter/src/modules/chat-hub/chat-hub.service.ts#19-23), [registerNotifier()](file:///d:/The%20Black%20Ants/CSC/CSC-Adapter/src/modules/chat-hub/chat-hub.service.ts#36-44) |
+| Getter | `get<What>()` | [getHandler()](file:///d:/The%20Black%20Ants/CSC/CSC-Adapter/src/modules/webhook/webhook-registry.service.ts#27-42), [getRegisteredPlatforms()](file:///d:/The%20Black%20Ants/CSC/CSC-Adapter/src/modules/webhook/webhook-registry.service.ts#50-56) |
+| Check method | `has<What>()` | [hasHandler()](file:///d:/The%20Black%20Ants/CSC/CSC-Adapter/src/modules/webhook/webhook-registry.service.ts#43-49) |
+| Route method | `routeTo<Target>()` | [routeToCustomer()](file:///d:/The%20Black%20Ants/CSC/CSC-Adapter/src/modules/chat-hub/chat-hub.service.ts#72-101) |
+
+### 3.4 Cấu Trúc Thư Mục
+
+```
+src/
+├── main.ts                          ← Entry point
+├── app.module.ts                    ← Root module
+├── common/                          ← Shared (interfaces, enums, constants)
+│   ├── enums/
+│   ├── interfaces/
+│   ├── constants/
+│   ├── guards/         (TODO)       ← Auth guards
+│   ├── filters/        (TODO)       ← Exception filters
+│   ├── interceptors/   (TODO)       ← Response transform
+│   └── decorators/     (TODO)       ← Custom decorators
+└── modules/
+    ├── chat-hub/                    ← Core Hub
+    ├── webhook/                     ← Webhook Gateway
+    ├── agent-gateway/               ← WebSocket cho Agent
+    └── adapters/
+        ├── telegram/                ← Telegram adapter
+        └── livechat/                ← LiveChat adapter
+```
+
+---
+
+## 4. Các Rule Ràng Buộc
+
+### 4.1 🔴 Rules BẮT BUỘC (Phải tuân theo)
+
+| # | Rule | Vì Sao |
+|---|------|--------|
+| 1 | Mọi tin nhắn **PHẢI** chuyển về [IStandardMessage](file:///d:/The%20Black%20Ants/CSC/CSC-Adapter/src/common/interfaces/standard-message.interface.ts#11-24) trước khi vào Hub | Đảm bảo Hub platform-agnostic, không coupling với bất kỳ format nền tảng nào |
+| 2 | Adapter **PHẢI** implement [IChatAdapter](file:///d:/The%20Black%20Ants/CSC/CSC-Adapter/src/common/interfaces/standard-message.interface.ts#30-42) interface | Contract đúng → compile-time check, không sót method |
+| 3 | Webhook handler **PHẢI** implement [IWebhookHandler](file:///d:/The%20Black%20Ants/CSC/CSC-Adapter/src/common/interfaces/standard-message.interface.ts#78-93) interface | Strategy pattern hoạt động đúng, registry dispatch không lỗi |
+| 4 | Dependency direction: `Adapter → Core`, **NEVER** `Core → Adapter` | Tránh circular dependency, đảm bảo core không phụ thuộc platform-specific code |
+| 5 | Self-registration qua [onModuleInit()](file:///d:/The%20Black%20Ants/CSC/CSC-Adapter/src/modules/adapters/telegram/telegram.adapter.ts#37-43) | Module tự đăng ký → thêm/xóa module không cần sửa code core |
+| 6 | DTO **PHẢI** có `class-validator` decorators | Validation tự động, chặn dữ liệu sai trước khi vào business logic |
+| 7 | `strict: true` trong [tsconfig.json](file:///d:/The%20Black%20Ants/CSC/CSC-Adapter/tsconfig.json) | Bắt lỗi null/undefined tại compile time, giảm runtime crash |
+| 8 | Mỗi class **PHẢI** có `Logger` instance riêng | Debug dễ dàng — biết log từ component nào |
+| 9 | Error handling: **KHÔNG** throw raw error, wrap trong [WebhookResult](file:///d:/The%20Black%20Ants/CSC/CSC-Adapter/src/common/interfaces/standard-message.interface.ts#58-64) hoặc [ApiResponse](file:///d:/The%20Black%20Ants/CSC/CSC-Adapter/src/common/interfaces/api-response.interface.ts#8-14) | Client nhận response có cấu trúc, dễ xử lý ở frontend |
+| 10 | Comment bằng **tiếng Việt** cho business logic quan trọng | Team Việt Nam hiểu nhanh hơn, giảm thời gian onboarding |
+
+### 4.2 🟡 Rules NÊN Áp Dụng
+
+| # | Rule | Vì Sao |
+|---|------|--------|
+| 1 | Barrel export ([index.ts](file:///d:/The%20Black%20Ants/CSC/CSC-Adapter/src/common/enums/index.ts)) cho mỗi module | Import gọn hơn: `from './webhook'` thay vì `from './webhook/webhook-registry.service'` |
+| 2 | Swagger decorators cho mọi API endpoint | Documentation tự động, team FE đọc API spec mà không cần hỏi BE |
+| 3 | Section dividers (`// ============ SECTION ============`) | Code dễ navigate, scan nhanh structure |
+| 4 | Emoji trong log messages (✅ ❌ 📨 📤 🔌) | Visual distinction trong terminal, scan log nhanh hơn |
+| 5 | `@Global()` cho core modules (Hub, Webhook) | Tránh phải import module ở nhiều nơi, giảm boilerplate |
+| 6 | Tách `<Feature>Service` khỏi `<Feature>Adapter` | Service = logic SDK/API, Adapter = logic mapping. Rõ trách nhiệm |
+| 7 | DTO class riêng cho mỗi action | Validation precise, Swagger docs chính xác |
+
+### 4.3 🟢 Rules CÓ THỂ Áp Dụng Bổ Sung
+
+| # | Rule | Vì Sao | Khi Nào |
+|---|------|--------|---------|
+| 1 | Global Exception Filter | Catch-all errors → response chuẩn, không leak stack trace | Trước production |
+| 2 | Response Interceptor | Wrap mọi response vào `ApiResponse<T>` tự động | Khi API nhiều endpoint |
+| 3 | Custom `@Platform()` decorator | Giảm boilerplate trong controller | Khi có > 5 platform |
+| 4 | Path aliases (`@common/*`, `@modules/*`) | Import paths ngắn gọn, không relative path dài | Khi project phức tạp |
+| 5 | Commit lint + Husky hooks | Enforce conventional commits (feat/fix/chore) | Khi team > 2 người |
+| 6 | OpenAPI client generation | Auto-generate FE SDK từ Swagger spec | Khi có team FE riêng |
+
+---
+
+## 5. Pipeline Hoạt Động Chi Tiết
+
+### 5.1 Luồng 1: Khách Hàng → Agent (Incoming)
+
+```mermaid
+sequenceDiagram
+    participant P as Platform (Telegram/LiveChat)
+    participant WGC as WebhookGatewayController
+    participant WRS as WebhookRegistryService
+    participant WH as PlatformWebhookHandler
+    participant AD as PlatformAdapter
+    participant HUB as ChatHubService
+    participant AG as AgentGateway
+    participant UI as Agent UI
+
+    P->>WGC: POST /webhook/:platform (raw payload)
+    WGC->>WRS: getHandler(platform)
+    WRS-->>WGC: IWebhookHandler
+    WGC->>WH: handleWebhook(payload, headers)
+    WH->>AD: parseIncomingWebhook(payload)
+    AD-->>WH: IStandardMessage
+    WH->>HUB: handleIncomingMessage(message)
+    HUB->>AG: notifyAgents(message) [broadcast]
+    AG->>UI: emit('new_customer_message', data)
+    WH-->>WGC: WebhookResult
+    WGC-->>P: HTTP 200 OK
+```
+
+**Chi tiết từng bước:**
+1. **Platform gửi webhook** → `POST /webhook/telegram` (hoặc `/webhook/livechat`)
+2. **WebhookGatewayController** extract `:platform` param, gọi `WebhookRegistryService.getHandler()`
+3. **WebhookRegistryService** lookup `Map<string, IWebhookHandler>`, trả về handler tương ứng
+4. **Handler** (VD: [TelegramWebhookHandler](file:///d:/The%20Black%20Ants/CSC/CSC-Adapter/src/modules/adapters/telegram/telegram-webhook.handler.ts#14-73)) gọi adapter parse payload → [IStandardMessage](file:///d:/The%20Black%20Ants/CSC/CSC-Adapter/src/common/interfaces/standard-message.interface.ts#11-24)
+5. **Adapter** (VD: `TelegramAdapter.parseIncomingWebhook()`) chuyển đổi format
+6. **Handler** gọi `ChatHubService.handleIncomingMessage()`
+7. **Hub** loop qua tất cả [IAgentNotifier](file:///d:/The%20Black%20Ants/CSC/CSC-Adapter/src/common/interfaces/standard-message.interface.ts#50-54), gọi [notifyAgents()](file:///d:/The%20Black%20Ants/CSC/CSC-Adapter/src/common/interfaces/standard-message.interface.ts#51-53)
+8. **AgentGateway** emit WebSocket event `new_customer_message` đến tất cả client
+
+### 5.2 Luồng 2: Agent → Khách Hàng (Outgoing)
+
+```mermaid
+sequenceDiagram
+    participant UI as Agent UI
+    participant AG as AgentGateway
+    participant HUB as ChatHubService
+    participant AD as PlatformAdapter
+    participant SVC as PlatformService
+    participant P as Platform API
+
+    UI->>AG: emit('agent_reply', {platform, threadId, text})
+    AG->>AG: Build IStandardMessage
+    AG->>HUB: routeToCustomer(platform, threadId, message)
+    HUB->>HUB: getAdapter(platform)
+    HUB->>AD: sendMessage(threadId, message)
+    AD->>SVC: Platform-specific send logic
+    SVC->>P: API call (sendMessage/sendEvent)
+    P-->>SVC: Response
+    SVC-->>AD: boolean
+    AD-->>HUB: boolean
+    HUB-->>AG: boolean
+    AG->>UI: emit('message_sent', {success})
+```
+
+**Chi tiết từng bước:**
+1. **Agent UI** gửi WebSocket event `agent_reply` với `{platform, threadId, agentName, text}`
+2. **AgentGateway** build [IStandardMessage](file:///d:/The%20Black%20Ants/CSC/CSC-Adapter/src/common/interfaces/standard-message.interface.ts#11-24) từ payload
+3. Gọi `ChatHubService.routeToCustomer(platform, threadId, message)`
+4. **Hub** lookup `Map<Platform, IChatAdapter>`, lấy adapter tương ứng
+5. Gọi `adapter.sendMessage(threadId, message)`
+6. **Adapter** chuyển [IStandardMessage](file:///d:/The%20Black%20Ants/CSC/CSC-Adapter/src/common/interfaces/standard-message.interface.ts#11-24) → format platform và gửi qua platform service
+7. Kết quả propagate ngược lại → Agent UI nhận `message_sent` event
+
+### 5.3 Luồng Đăng Ký (Self-Registration — Khi App Khởi Động)
+
+```mermaid
+sequenceDiagram
+    participant NF as NestJS Framework
+    participant TA as TelegramAdapter
+    participant TWH as TelegramWebhookHandler
+    participant AG as AgentGateway
+    participant HUB as ChatHubService
+    participant WRS as WebhookRegistryService
+
+    NF->>TA: onModuleInit()
+    TA->>HUB: registerAdapter(TELEGRAM, this)
+    TA->>TA: setupListeners() + launch bot
+
+    NF->>TWH: onModuleInit()
+    TWH->>WRS: register(this)
+
+    NF->>AG: onModuleInit()
+    AG->>HUB: registerNotifier(this)
+
+    Note over HUB,WRS: Hệ thống sẵn sàng nhận/gửi tin nhắn
+```
+
+---
+
+## 6. Đánh Giá Resource & Phương Án Cải Thiện
+
+### 6.1 Đánh Giá Hiện Trạng
+
+| Tiêu chí | Điểm | Nhận xét |
+|----------|-------|----------|
+| **Kiến trúc** | ⭐⭐⭐⭐ (4/5) | Hub-and-Spoke + Strategy/Registry rất tốt. Tách biệt rõ ràng. |
+| **Code Quality** | ⭐⭐⭐⭐ (4/5) | TypeScript strict, comment tiếng Việt rõ ràng, patterns nhất quán |
+| **Type Safety** | ⭐⭐⭐⭐ (4/5) | Interface-first, DTO validation. Một số chỗ dùng `any` (nên giảm) |
+| **Data Persistence** | ⭐ (1/5) | In-memory — mất data khi restart. **Cần cải thiện ngay** |
+| **Security** | ⭐ (1/5) | Không có auth, không webhook signature verify, CORS mở hết |
+| **Error Handling** | ⭐⭐⭐ (3/5) | Try-catch có nhưng chưa có global filter, chưa có retry |
+| **Testing** | ⭐ (1/5) | Jest được config nhưng chưa có test file nào |
+| **Documentation** | ⭐⭐⭐⭐ (4/5) | Swagger tốt, comment code chi tiết, README có |
+| **DevOps Ready** | ⭐⭐ (2/5) | Chưa có Docker, health check, graceful shutdown |
+
+### 6.2 Phương Án Cải Thiện — Ưu Tiên Cao (**Nên làm ngay**)
+
+#### 6.2.1 Database Layer (Điểm: 1→4)
+
+**Hiện tại**: `TelegramStoreService` lưu messages/conversations vào `Map` (in-memory).
+**Vấn đề**: Server restart = mất toàn bộ lịch sử chat.
+
+**Giải pháp**: Prisma + PostgreSQL (đã có trong dependencies).
+
+```
+# Thêm vào project:
+src/
+├── prisma/
+│   └── schema.prisma       ← Data model
+└── modules/
+    └── database/
+        ├── database.module.ts
+        └── prisma.service.ts
+```
+
+**Vì sao Prisma?**
+- Type-safe queries, auto-generated types
+- Migration system có version control
+- Đã có `@prisma/client` trong [package.json](file:///d:/The%20Black%20Ants/CSC/CSC-Adapter/package.json) nhưng chưa dùng
+- **Áp dụng ngay** — không có lý do giữ in-memory store cho production
+
+#### 6.2.2 Authentication & Authorization (Điểm: 1→4)
+
+**Hiện tại**: Mọi API/WebSocket endpoint đều public, ai cũng gọi được.
+
+**Giải pháp**:
+```
+src/common/
+├── guards/
+│   ├── jwt-auth.guard.ts        ← Verify JWT token
+│   └── roles.guard.ts           ← RBAC check
+├── decorators/
+│   ├── public.decorator.ts      ← Mark public routes
+│   └── roles.decorator.ts       ← @Roles('admin')
+└── strategies/
+    └── jwt.strategy.ts          ← Passport JWT strategy
+```
+
+**Cần thêm**: Webhook signature verification cho LiveChat (`secret_key`) và Telegram (IP whitelist hoặc token check).
+
+#### 6.2.3 Global Exception Filter (Điểm: 3→5)
+
+```typescript
+// src/common/filters/global-exception.filter.ts
+@Catch()
+export class GlobalExceptionFilter implements ExceptionFilter {
+  catch(exception: unknown, host: ArgumentsHost) {
+    // → Wrap mọi error thành ApiResponse format
+    // → Log structured error
+    // → Không leak stack trace ra client
+  }
+}
+```
+
+### 6.3 Phương Án Cải Thiện — Ưu Tiên Trung Bình
+
+#### 6.3.1 Message Queue (BullMQ + Redis)
+
+**Khi nào áp dụng?** Khi traffic > 500 msg/phút hoặc cần đảm bảo message delivery.
+
+```
+# Luồng mới:
+Webhook → Queue (BullMQ) → Worker → ChatHubService → Agent
+```
+
+**Ưu điểm**: Retry mechanism, Dead Letter Queue, back-pressure, horizontal scaling.
+**Nhược điểm**: Thêm complexity (Redis cluster), latency tăng ~50-100ms.
+
+#### 6.3.2 Health Check & Monitoring
+
+```bash
+pnpm add @nestjs/terminus
+```
+
+```
+GET /health → { status: 'ok', info: { database: 'up', redis: 'up', telegram_bot: 'up' } }
+```
+
+#### 6.3.3 Rate Limiting
+
+```bash
+pnpm add @nestjs/throttler
+```
+
+Bảo vệ: webhook endpoint, REST API, WebSocket connections.
+
+### 6.4 Phương Án Cải Thiện — Ưu Tiên Thấp (Nice-to-have)
+
+| Cải thiện | Mô tả | Khi nào |
+|-----------|--------|---------|
+| **Path aliases** | `@common/*`, `@modules/*` thay vì relative path `../../common/` | Khi file nesting > 3 levels |
+| **Structured logging** | Winston/Pino + JSON format | Khi deploy lên cloud có log aggregation |
+| **API versioning** | `/api/v1/chat/send`, `/api/v2/chat/send` | Khi có external API consumers |
+| **Docker + Docker Compose** | Containerize app + PostgreSQL + Redis | Trước khi deploy production |
+| **CI/CD pipeline** | GitHub Actions: lint → test → build → deploy | Khi team > 2 người |
+| **E2E testing** | Supertest mock webhook → verify agent nhận | Sau khi có unit tests |
+
+---
+
+## 7. Chiến Lược Mở Rộng Hệ Thống
+
+### 7.1 Thêm Platform Mới (VD: Zalo, Facebook Messenger)
+
+**Thời gian ước tính**: 2-4 giờ cho 1 platform
+
+**Các bước:**
+1. Tạo folder `src/modules/adapters/zalo/`
+2. Implement `ZaloAdapter` extends [IChatAdapter](file:///d:/The%20Black%20Ants/CSC/CSC-Adapter/src/common/interfaces/standard-message.interface.ts#30-42)
+3. Implement `ZaloWebhookHandler` extends [IWebhookHandler](file:///d:/The%20Black%20Ants/CSC/CSC-Adapter/src/common/interfaces/standard-message.interface.ts#78-93)
+4. Tạo `ZaloService` cho Zalo API calls
+5. Tạo `ZaloModule`, import vào [AppModule](file:///d:/The%20Black%20Ants/CSC/CSC-Adapter/src/app.module.ts#9-24)
+6. Thêm `ZALO` vào enum [Platform](file:///d:/The%20Black%20Ants/CSC/CSC-Adapter/src/modules/webhook/webhook-registry.service.ts#50-56)
+7. **Done** — không sửa code core
+
+```mermaid
+graph LR
+    subgraph Hiện tại
+        TG[TelegramModule]
+        LC[LivechatModule]
+    end
+    subgraph "Mở rộng (chỉ thêm, không sửa)"
+        ZL[ZaloModule]
+        FB[FacebookModule]
+        VB[ViberModule]
+    end
+    TG --> HUB[ChatHubModule]
+    LC --> HUB
+    ZL -.-> HUB
+    FB -.-> HUB
+    VB -.-> HUB
+```
+
+**Ưu điểm**: Zero-modification cho code hiện tại. Test regression = 0.
+**Nhược điểm**: Mỗi adapter vẫn phải viết boilerplate (handler + adapter + service + module).
+**Khắc phục**: Tạo base class `AbstractAdapter` / `AbstractWebhookHandler` cho code chung.
+
+### 7.2 Chuyển Sang Microservices
+
+**Khi nào?** Khi 1 adapter cần scale riêng (VD: Telegram traffic gấp 10x LiveChat), hoặc team chia theo platform.
+
+```mermaid
+graph TB
+    subgraph "API Gateway"
+        GW["Nginx / Kong"]
+    end
+    subgraph "Service: Webhook Router"
+        WR["webhook-router-service"]
+    end
+    subgraph "Service: Chat Hub"
+        CH["chat-hub-service"]
+    end
+    subgraph "Service: Telegram"
+        TG["telegram-adapter-service"]
+    end
+    subgraph "Service: LiveChat"
+        LC["livechat-adapter-service"]
+    end
+    subgraph "Infra"
+        MQ["RabbitMQ / Kafka"]
+        DB["PostgreSQL"]
+        RD["Redis"]
+    end
+
+    GW --> WR
+    WR -->|message queue| MQ
+    MQ --> TG
+    MQ --> LC
+    TG -->|events| MQ
+    LC -->|events| MQ
+    MQ --> CH
+    CH --> DB
+    CH --> RD
+```
+
+**Ưu điểm Microservices:**
+- Scale từng adapter độc lập
+- Deploy/rollback riêng từng service
+- Fault isolation — 1 adapter crash không ảnh hưởng hệ thống
+
+**Nhược điểm:**
+- Complexity tăng đáng kể (service discovery, distributed tracing, eventual consistency)
+- DevOps overhead (Docker, K8s, monitoring từng service)
+- Network latency giữa services
+
+**Khuyến nghị**: Giữ monolith hiện tại cho đến khi có **ít nhất 5 platform** hoặc **traffic > 10K msg/phút**. Kiến trúc hiện tại đã thiết kế sẵn cho việc tách — mỗi module gần như là 1 microservice.
+
+### 7.3 Event-Driven Architecture (Bước Trung Gian)
+
+Trước khi chuyển full microservices, có thể áp dụng Event-Driven trong monolith:
+
+```typescript
+// Thay vì gọi trực tiếp:
+await this.chatHubService.handleIncomingMessage(message);
+
+// Dùng NestJS EventEmitter:
+this.eventEmitter.emit('message.incoming', message);
+```
+
+**Ưu điểm**: Loose coupling hơn, dễ thêm side-effects (logging, analytics, AI processing) mà không sửa handler.
+**Khi nào**: Khi cần thêm nhiều "reaction" cho 1 event (VD: log DB + notify agent + trigger AI + update CRM).
+
+### 7.4 AI Integration (Tầm Nhìn Dài Hạn)
+
+```
+Incoming Message → Hub → [AI Classifier] → Auto-reply hoặc Route to Agent
+                                ↓
+                         [Intent Detection]
+                         [Sentiment Analysis]
+                         [Auto-Response Bot]
+```
+
+Kiến trúc hiện tại support tốt vì:
+- AI module implement [IAgentNotifier](file:///d:/The%20Black%20Ants/CSC/CSC-Adapter/src/common/interfaces/standard-message.interface.ts#50-54) → nhận mọi tin nhắn
+- AI module dùng `ChatHubService.routeToCustomer()` → auto-reply
+- Không cần sửa adapter hay webhook code
+
+---
+
+> [!TIP]
+> **Tóm tắt hành động ngay:**
+> 1. 🔴 **Thêm Database layer** (Prisma + PostgreSQL) — mất data là critical
+> 2. 🔴 **Thêm Authentication** (JWT + webhook signature verify) — security critical
+> 3. 🟡 **Global Exception Filter** — production readiness
+> 4. 🟡 **Unit Tests** cho core logic (Hub, Registry, Adapters)
+> 5. 🟢 **Docker Compose** cho dev environment

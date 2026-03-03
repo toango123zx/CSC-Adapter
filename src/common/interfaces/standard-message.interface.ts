@@ -51,3 +51,42 @@ export interface IAgentNotifier {
   /** Thông báo cho agents về tin nhắn mới từ khách hàng */
   notifyAgents(message: IStandardMessage): void;
 }
+
+/**
+ * Kết quả xử lý webhook trả về cho caller.
+ */
+export interface WebhookResult {
+  success: boolean;
+  processed: boolean;
+  message?: string;
+  data?: Record<string, any>;
+}
+
+/**
+ * Interface cho webhook handler của mỗi platform.
+ * Mỗi platform cần implement interface này để nhận webhook.
+ *
+ * THIẾT KẾ: Strategy Pattern — mỗi handler là 1 strategy xử lý webhook
+ * cho platform cụ thể. WebhookRegistryService sẽ chọn đúng handler
+ * dựa trên platform identifier.
+ *
+ * Khi thêm platform mới:
+ * 1. Tạo class implement IWebhookHandler
+ * 2. Đăng ký vào WebhookRegistryService trong onModuleInit()
+ * 3. Done — không cần sửa code core
+ */
+export interface IWebhookHandler {
+  /** Platform identifier — dùng để routing */
+  readonly platform: Platform;
+
+  /**
+   * Xử lý webhook payload từ platform.
+   * @param payload - Raw payload từ HTTP request body
+   * @param headers - HTTP headers (dùng cho signature verification nếu cần)
+   * @returns Kết quả xử lý webhook
+   */
+  handleWebhook(
+    payload: any,
+    headers?: Record<string, string>,
+  ): Promise<WebhookResult>;
+}
