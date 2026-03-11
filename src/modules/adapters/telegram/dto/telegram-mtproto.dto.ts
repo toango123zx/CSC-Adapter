@@ -1,6 +1,6 @@
 // src/modules/adapters/telegram/dto/telegram-mtproto.dto.ts
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsString, IsNotEmpty, IsOptional, IsArray, ArrayMinSize } from 'class-validator';
+import { IsString, IsNotEmpty, IsOptional, IsArray, ArrayMinSize, IsBoolean, IsInt } from 'class-validator';
 
 /**
  * Tạo Group chỉ có mình (+ optional bots).
@@ -77,4 +77,78 @@ export class DeleteGroupDto {
     @IsString()
     @IsNotEmpty()
     chatId!: string;
+}
+
+// ================================================================
+// RENAME GROUP (MTProto)
+// ================================================================
+
+/**
+ * DTO đổi tên Group qua MTProto UserBot.
+ */
+export class RenameGroupDto {
+    @ApiProperty({ description: 'ID của Group/Supergroup cần đổi tên', example: '-100123456789' })
+    @IsString()
+    @IsNotEmpty()
+    chatId!: string;
+
+    @ApiProperty({ description: 'Tên mới cho Group', example: 'CSKH - Phòng hỗ trợ VIP' })
+    @IsString()
+    @IsNotEmpty()
+    newTitle!: string;
+}
+
+// ================================================================
+// INVITE LINK (MTProto)
+// ================================================================
+
+/**
+ * DTO tạo invite link qua MTProto UserBot.
+ * Hỗ trợ tuỳ chọn: cần duyệt, giới hạn người, hết hạn.
+ */
+export class CreateMtprotoInviteLinkDto {
+    @ApiProperty({ description: 'ID của Group/Supergroup', example: '-100123456789' })
+    @IsString()
+    @IsNotEmpty()
+    chatId!: string;
+
+    @ApiPropertyOptional({ description: 'Tên hiển thị của link (ví dụ: "Link sự kiện")', example: 'Link mời tháng 3' })
+    @IsOptional()
+    @IsString()
+    title?: string;
+
+    @ApiPropertyOptional({ description: 'Cần Admin duyệt khi user join (true/false)', default: false })
+    @IsOptional()
+    @IsBoolean()
+    requestNeeded?: boolean;
+
+    @ApiPropertyOptional({ description: 'Số người tối đa có thể join qua link này (1 - 99999)' })
+    @IsOptional()
+    @IsInt()
+    usageLimit?: number;
+
+    @ApiPropertyOptional({ description: 'Thời gian hết hạn (Unix timestamp giây, vd: 1714521600)' })
+    @IsOptional()
+    @IsInt()
+    expireDate?: number;
+}
+
+// ================================================================
+// JOIN REQUEST (MTProto)
+// ================================================================
+
+/**
+ * DTO xử lý yêu cầu tham gia nhóm qua MTProto UserBot.
+ * Dùng cho cả approve và reject.
+ */
+export class JoinRequestActionDto {
+    @ApiProperty({ description: 'ID của Group/Supergroup', example: '-100123456789' })
+    @IsString()
+    @IsNotEmpty()
+    chatId!: string;
+
+    @ApiProperty({ description: 'Username hoặc ID của user cần duyệt/từ chối', example: '@nguyenvana' })
+    @IsString()
+    @IsNotEmpty()
+    userId!: string;
 }

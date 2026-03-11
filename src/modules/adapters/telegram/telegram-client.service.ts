@@ -285,4 +285,254 @@ export class TelegramClientService implements OnModuleInit {
             return false;
         }
     }
+
+    // ================================================================
+    // RENAME GROUP (UserBot)
+    // ================================================================
+
+    /**
+     * Đổi tên nhóm Telegram qua MTProto.
+     * Hỗ trợ cả Basic Group (messages.EditChatAbout) và Supergroup/Channel (channels.EditTitle).
+     * @param chatId ID của group (dạng âm: -xxx hoặc -100xxx)
+     * @param newTitle Tên mới muốn đặt cho nhóm
+     * @returns true nếu đổi tên thành công, false nếu thất bại
+     */
+    async renameGroup(chatId: string, newTitle: string): Promise<boolean> {
+        if (!this.isConnected) {
+            this.logger.error('⚠️ UserBot chưa sẵn sàng. Cần cấu hình TELEGRAM_SESSION_STRING.');
+            return false;
+        }
+
+        try {
+            const entity = await this.client.getEntity(chatId);
+
+            // Supergroup/Channel → dùng channels.EditTitle
+            if (entity.className === 'Channel') {
+                await this.client.invoke(
+                    new Api.channels.EditTitle({
+                        channel: entity,
+                        title: newTitle,
+                    })
+                );
+                this.logger.log(`✏️ Đã đổi tên Supergroup/Channel ${chatId} → "${newTitle}"`);
+                return true;
+            }
+
+            // Basic Group → dùng messages.EditChatAbout (EditChatTitle không có trong GramJS, dùng invoke raw)
+            if (entity.className === 'Chat') {
+                const rawId = chatId.startsWith('-') ? chatId.replace('-', '') : chatId;
+                const bigIntId = require('big-integer')(rawId);
+                await this.client.invoke(
+                    new Api.messages.EditChatTitle({
+                        chatId: bigIntId,
+                        title: newTitle,
+                    })
+                );
+                this.logger.log(`✏️ Đã đổi tên Basic Group ${chatId} → "${newTitle}"`);
+                return true;
+            }
+
+            this.logger.warn(`⚠️ Entity ${chatId} không phải Group hoặc Channel, không thể đổi tên.`);
+            return false;
+        } catch (error: unknown) {
+            const msg = error instanceof Error ? error.message : 'Unknown error';
+            this.logger.error(`❌ Lỗi đổi tên Group ${chatId}: ${msg}`);
+            return false;
+        }
+    }
+
+    // ================================================================
+    // INVITE LINK MANAGEMENT (UserBot)
+    // ================================================================
+
+    /**
+     * Tạo invite link cho Group/Supergroup qua MTProto.
+     * Đây là hàm tổng quát — có thể tuỳ chỉnh: cần duyệt, giới hạn người, hết hạn, v.v.
+     * @param chatId ID của group
+     * @param options Tuỳ chọn tạo link:
+     *   - title: Tên hiển thị của link (ví dụ: "Link sự kiện")
+     *   - requestNeeded: true = cần Admin duyệt khi user join
+     *   - usageLimit: Số người tối đa có thể join qua link này (0 = không giới hạn)
+     *   - expireDate: Thời gian hết hạn (Unix timestamp giây)
+     * @returns Object chứa inviteLink và metadata, hoặc null nếu thất bại
+     */
+    async createInviteLink(
+        chatId: string,
+        options?: {
+            title?: string;
+            requestNeeded?: boolean;
+            usageLimit?: number;
+            expireDate?: number;
+        },
+    ): Promise<{ inviteLink: string; requestNeeded: boolean; usageLimit?: number } | null> {
+        if (!this.isConnected) {
+            this.logger.error('⚠️ UserBot chưa sẵn sàng. Cần cấu hình TELEGRAM_SESSION_STRING.');
+            return null;
+        }
+
+        try {
+            const entity = await this.client.getEntity(chatId);
+
+            // Gọi API ExportChatInvite để tạo invite link với các tuỳ chọn
+            const result = await this.client.invoke(
+                new Api.messages.ExportChatInvite({
+                    peer: entity,
+                    title: options?.title,
+                    requestNeeded: options?.requestNeeded ?? false,
+                    usageLimit: options?.usageLimit,
+                    expireDate: options?.expireDate,
+                })
+            ) as Api.ChatInviteExported;
+
+            const inviteLink = result.link;
+            const requestNeeded = options?.requestNeeded ?? false;
+            const usageLimit = options?.usageLimit;
+
+            // Log chi tiết loại link được tạo
+            const linkType = requestNeeded
+                ? '🔒 Cần duyệt'
+                : usageLimit
+                    ? `👥 Giới hạn ${usageLimit} người`
+                    : '🌐 Công khai';
+
+            this.logger.log(`🔗 Đã tạo invite link [${linkType}] cho Group ${chatId}: ${inviteLink}`);
+
+            return { inviteLink, requestNeeded, usageLimit };
+        } catch (error: unknown) {
+            const msg = error instanceof Error ? error.message : 'Unknown error';
+            this.logger.error(`❌ Lỗi tạo invite link cho Group ${chatId}: ${msg}`);
+            return null;
+        }
+    }
+
+    /**
+     * Tạo link tham gia nhóm KHÔNG cần Admin duyệt.
+     * Ai có link đều có thể join ngay lập tức.
+     * @param chatId ID của group
+     * @param title Tên hiển thị của link (optional)
+     * @returns Object chứa inviteLink, hoặc null nếu thất bại
+     */
+    async createPublicInviteLink(
+        chatId: string,
+        title?: string,
+    ): Promise<{ inviteLink: string; requestNeeded: boolean } | null> {
+        this.logger.log(`🌐 Tạo link join công khai (không cần duyệt) cho Group ${chatId}...`);
+        return this.createInviteLink(chatId, {
+            title: title || 'Link tham gia công khai',
+            requestNeeded: false,
+        });
+    }
+
+    /**
+     * Tạo link tham gia nhóm CẦN Admin duyệt (approval-based).
+     * Khi user click link, admin sẽ nhận được yêu cầu → phải approve hoặc reject.
+     * @param chatId ID của group
+     * @param title Tên hiển thị của link (optional)
+     * @returns Object chứa inviteLink, hoặc null nếu thất bại
+     */
+    async createApprovalInviteLink(
+        chatId: string,
+        title?: string,
+    ): Promise<{ inviteLink: string; requestNeeded: boolean } | null> {
+        this.logger.log(`🔒 Tạo link join cần duyệt (approval) cho Group ${chatId}...`);
+        return this.createInviteLink(chatId, {
+            title: title || 'Link tham gia cần duyệt',
+            requestNeeded: true,
+        });
+    }
+
+    /**
+     * Tạo link tham gia nhóm có GIỚI HẠN số người tối đa.
+     * Khi đạt đủ số lượng, link sẽ tự động hết hiệu lực.
+     * @param chatId ID của group
+     * @param usageLimit Số người tối đa có thể join qua link này (1 - 99999)
+     * @param title Tên hiển thị của link (optional)
+     * @returns Object chứa inviteLink và usageLimit, hoặc null nếu thất bại
+     */
+    async createLimitedInviteLink(
+        chatId: string,
+        usageLimit: number,
+        title?: string,
+    ): Promise<{ inviteLink: string; requestNeeded: boolean; usageLimit?: number } | null> {
+        this.logger.log(`👥 Tạo link join giới hạn ${usageLimit} người cho Group ${chatId}...`);
+        return this.createInviteLink(chatId, {
+            title: title || `Link giới hạn ${usageLimit} người`,
+            requestNeeded: false,
+            usageLimit: usageLimit,
+        });
+    }
+
+    // ================================================================
+    // JOIN REQUEST HANDLING (UserBot)
+    // ================================================================
+
+    /**
+     * Phê duyệt (Accept) yêu cầu tham gia nhóm của user qua MTProto.
+     * Dùng khi link invite có requestNeeded = true và user đã click link → chờ duyệt.
+     * @param chatId ID của group
+     * @param userId Username hoặc ID của user cần duyệt
+     * @returns true nếu duyệt thành công, false nếu thất bại
+     */
+    async approveJoinRequest(chatId: string, userId: string): Promise<boolean> {
+        if (!this.isConnected) {
+            this.logger.error('⚠️ UserBot chưa sẵn sàng. Cần cấu hình TELEGRAM_SESSION_STRING.');
+            return false;
+        }
+
+        try {
+            const peer = await this.client.getEntity(chatId);
+            const user = await this.client.getEntity(userId);
+
+            // HideChatJoinRequest với approved = true → Accept user vào nhóm
+            await this.client.invoke(
+                new Api.messages.HideChatJoinRequest({
+                    peer: peer,
+                    userId: user,
+                    approved: true,
+                })
+            );
+
+            this.logger.log(`✅ Đã DUYỆT yêu cầu join của user ${userId} vào Group ${chatId}`);
+            return true;
+        } catch (error: unknown) {
+            const msg = error instanceof Error ? error.message : 'Unknown error';
+            this.logger.error(`❌ Lỗi duyệt join request (${userId} → ${chatId}): ${msg}`);
+            return false;
+        }
+    }
+
+    /**
+     * Từ chối (Reject) yêu cầu tham gia nhóm của user qua MTProto.
+     * Dùng khi link invite có requestNeeded = true và admin muốn từ chối user.
+     * @param chatId ID của group
+     * @param userId Username hoặc ID của user cần từ chối
+     * @returns true nếu từ chối thành công, false nếu thất bại
+     */
+    async rejectJoinRequest(chatId: string, userId: string): Promise<boolean> {
+        if (!this.isConnected) {
+            this.logger.error('⚠️ UserBot chưa sẵn sàng. Cần cấu hình TELEGRAM_SESSION_STRING.');
+            return false;
+        }
+
+        try {
+            const peer = await this.client.getEntity(chatId);
+            const user = await this.client.getEntity(userId);
+
+            // HideChatJoinRequest với approved = false → Reject user
+            await this.client.invoke(
+                new Api.messages.HideChatJoinRequest({
+                    peer: peer,
+                    userId: user,
+                    approved: false,
+                })
+            );
+
+            this.logger.log(`❌ Đã TỪ CHỐI yêu cầu join của user ${userId} vào Group ${chatId}`);
+            return true;
+        } catch (error: unknown) {
+            const msg = error instanceof Error ? error.message : 'Unknown error';
+            this.logger.error(`❌ Lỗi từ chối join request (${userId} → ${chatId}): ${msg}`);
+            return false;
+        }
+    }
 }

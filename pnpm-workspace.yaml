@@ -2,5 +2,9 @@ ignoredBuiltDependencies:
   - '@nestjs/core'
   - '@prisma/engines'
   - '@scarf/scarf'
+  - bufferutil
+  - core-js
+  - es5-ext
   - esbuild
   - prisma
+  - utf-8-validate

@@ -46,6 +46,7 @@ export class TelegramAdapter implements IChatAdapter, OnModuleInit {
   private setupListeners(): void {
     // --- TEXT ---
     this.telegramService.registerHandler('text', async (ctx: Context) => {
+      console.log("🚀 ~ TelegramAdapter ~ setupListeners ~ ctx:", ctx)
       if (ctx.message && 'text' in ctx.message && ctx.message.text.startsWith('/')) return;
       if (ctx.from?.is_bot) return; // Bỏ qua tin nhắn từ bot khác (tránh echo loop)
       const msg = this.parseTextMessage(ctx);
@@ -99,19 +100,19 @@ export class TelegramAdapter implements IChatAdapter, OnModuleInit {
       await this.chatHubService.handleIncomingMessage(msg);
     });
 
-    // --- NEW CHAT MEMBERS (Bot được add vào nhóm mới) ---
+    // --- NEW CHAT MEMBERS (Bot được add vào nhóm / User join nhóm qua link không cần accept hoặc add trực tiếp) ---
     this.telegramService.registerHandler('new_chat_members' as any, async (ctx: Context) => {
       if (!ctx.message || !('new_chat_members' in ctx.message)) return;
       const newMembers = (ctx.message as any).new_chat_members as any[];
       const botInfo = await ctx.telegram.getMe();
+      const chatId = ctx.chat!.id.toString();
+      const chatTitle = (ctx.chat as any).title || 'Unknown Group';
 
       for (const member of newMembers) {
         if (member.id === botInfo.id) {
-          const chatId = ctx.chat!.id.toString();
-          const chatTitle = (ctx.chat as any).title || 'Unknown Group';
+          // Bot được thêm vào group → Track conversation
           this.logger.log(`🤖 Bot đã được thêm vào group: "${chatTitle}" (ID: ${chatId})`);
 
-          // Track conversation ngay khi bot được add
           this.storeService.upsertConversation(
             chatId,
             (ctx.chat!.type || 'group') as TelegramChatType,
@@ -119,11 +120,60 @@ export class TelegramAdapter implements IChatAdapter, OnModuleInit {
             ctx.from?.id.toString() || 'system',
             undefined,
           );
+        } else {
+          // User thường join nhóm (qua link không cần accept / được add trực tiếp) → Log chi tiết
+          const memberName = `${member.first_name || ''} ${member.last_name || ''}`.trim() || 'Unknown';
+          const memberUsername = member.username ? `@${member.username}` : `ID:${member.id}`;
+          const addedBy = ctx.from ? `${ctx.from.first_name || ''} (ID: ${ctx.from.id})` : 'Unknown';
+
+          this.logger.log(
+            `👤 User mới join group: "${chatTitle}" (${chatId}) — ` +
+            `${memberName} (${memberUsername}) — ` +
+            `Được thêm bởi: ${addedBy} — ` +
+            `Thời gian: ${new Date().toLocaleString('vi-VN')}`,
+          );
         }
       }
     });
 
-    this.logger.log('📌 Đã đăng ký 7 message handlers với Telegram bot (bao gồm group listener)');
+    // --- CHAT JOIN REQUEST (User yêu cầu tham gia nhóm qua link CẦN duyệt / approval-based) ---
+    // Khi user click vào invite link có requestNeeded = true → Telegram gửi update chat_join_request
+    // Listener này log chi tiết ra terminal để admin biết có người chờ duyệt
+    this.telegramService.registerHandler('chat_join_request' as any, async (ctx: Context) => {
+      try {
+        const update = ctx.update as any;
+        const joinRequest = update.chat_join_request;
+        if (!joinRequest) return;
+
+        // Trích xuất thông tin từ join request
+        const chatId = joinRequest.chat?.id?.toString() || 'Unknown';
+        const chatTitle = joinRequest.chat?.title || 'Unknown Group';
+        const userId = joinRequest.from?.id?.toString() || 'Unknown';
+        const userName = `${joinRequest.from?.first_name || ''} ${joinRequest.from?.last_name || ''}`.trim() || 'Unknown';
+        const userUsername = joinRequest.from?.username ? `@${joinRequest.from.username}` : `ID:${userId}`;
+        const requestDate = joinRequest.date
+          ? new Date(joinRequest.date * 1000).toLocaleString('vi-VN')
+          : new Date().toLocaleString('vi-VN');
+        const inviteLink = joinRequest.invite_link?.invite_link || 'Không rõ';
+        const bio = joinRequest.bio || 'Không có';
+
+        // Log chi tiết ra terminal
+        this.logger.log(
+          `📨 [JOIN REQUEST] User yêu cầu tham gia nhóm CẦN DUYỆT:\n` +
+          `   📋 Group: "${chatTitle}" (ID: ${chatId})\n` +
+          `   👤 User: ${userName} (${userUsername})\n` +
+          `   🔗 Link invite: ${inviteLink}\n` +
+          `   📝 Bio: ${bio}\n` +
+          `   🕒 Thời gian: ${requestDate}\n` +
+          `   ⏳ Trạng thái: ĐANG CHỜ DUYỆT — Dùng endpoint POST /telegram/groups/mtproto/approve-join hoặc reject-join`,
+        );
+      } catch (error: unknown) {
+        const errorMsg = error instanceof Error ? error.message : 'Unknown error';
+        this.logger.error(`❌ Lỗi xử lý chat_join_request: ${errorMsg}`);
+      }
+    });
+
+    this.logger.log('📌 Đã đăng ký 9 message handlers với Telegram bot (bao gồm group listener + join request listener)');
   }
 
   // ============ CONVERSATION TRACKING ============

@@ -32,6 +32,9 @@ import {
   CreateGroupWithUsersDto,
   AddMembersDto,
   DeleteGroupDto,
+  RenameGroupDto,
+  CreateMtprotoInviteLinkDto,
+  JoinRequestActionDto,
 } from './dto/telegram-mtproto.dto';
 
 @ApiTags('Telegram API')
@@ -130,6 +133,153 @@ export class TelegramController {
     return {
       success: result,
       message: result ? 'Đã xóa hoàn toàn Group' : 'Xóa thất bại. Kiểm tra lại ID và quyền Creator.',
+    };
+  }
+
+  @Patch('groups/mtproto/rename')
+  @ApiOperation({
+    summary: '(MTProto) Đổi tên Group qua UserBot',
+    description: 'Đổi tên nhóm Telegram qua MTProto. Hỗ trợ cả Basic Group và Supergroup/Channel.',
+  })
+  async renameGroupMtproto(
+    @Body() dto: RenameGroupDto,
+  ): Promise<ApiResponse> {
+    if (!this.telegramClientService.isReady) {
+      return { success: false, error: 'UserBot MTProto chưa được cấu hình.' };
+    }
+
+    const result = await this.telegramClientService.renameGroup(dto.chatId, dto.newTitle);
+    return {
+      success: result,
+      message: result ? `Đã đổi tên group thành "${dto.newTitle}"` : 'Đổi tên thất bại. Kiểm tra lại quyền và ID group.',
+    };
+  }
+
+  @Post('groups/mtproto/invite-link')
+  @ApiOperation({
+    summary: '(MTProto) Tạo invite link tuỳ chỉnh cho Group',
+    description: 'Tạo link mời qua MTProto UserBot. Có thể tuỳ chỉnh: cần duyệt, giới hạn người, hết hạn.',
+  })
+  async createMtprotoInviteLink(
+    @Body() dto: CreateMtprotoInviteLinkDto,
+  ): Promise<ApiResponse<{ inviteLink: string; requestNeeded: boolean; usageLimit?: number }>> {
+    if (!this.telegramClientService.isReady) {
+      return { success: false, error: 'UserBot MTProto chưa được cấu hình.' };
+    }
+
+    const result = await this.telegramClientService.createInviteLink(dto.chatId, {
+      title: dto.title,
+      requestNeeded: dto.requestNeeded,
+      usageLimit: dto.usageLimit,
+      expireDate: dto.expireDate,
+    });
+
+    if (!result) {
+      return { success: false, error: 'Tạo invite link thất bại' };
+    }
+    return { success: true, data: result };
+  }
+
+  @Post('groups/mtproto/invite-link/public')
+  @ApiOperation({
+    summary: '(MTProto) Tạo link join KHÔNG cần duyệt',
+    description: 'Ai có link đều có thể join group ngay, không cần Admin approve.',
+  })
+  async createPublicInviteLink(
+    @Body() dto: { chatId: string; title?: string },
+  ): Promise<ApiResponse<{ inviteLink: string; requestNeeded: boolean }>> {
+    if (!this.telegramClientService.isReady) {
+      return { success: false, error: 'UserBot MTProto chưa được cấu hình.' };
+    }
+
+    const result = await this.telegramClientService.createPublicInviteLink(dto.chatId, dto.title);
+    if (!result) {
+      return { success: false, error: 'Tạo link công khai thất bại' };
+    }
+    return { success: true, data: result };
+  }
+
+  @Post('groups/mtproto/invite-link/approval')
+  @ApiOperation({
+    summary: '(MTProto) Tạo link join CẦN Admin duyệt',
+    description: 'Khi user click link → Admin nhận yêu cầu → phải approve hoặc reject.',
+  })
+  async createApprovalInviteLink(
+    @Body() dto: { chatId: string; title?: string },
+  ): Promise<ApiResponse<{ inviteLink: string; requestNeeded: boolean }>> {
+    if (!this.telegramClientService.isReady) {
+      return { success: false, error: 'UserBot MTProto chưa được cấu hình.' };
+    }
+
+    const result = await this.telegramClientService.createApprovalInviteLink(dto.chatId, dto.title);
+    if (!result) {
+      return { success: false, error: 'Tạo link cần duyệt thất bại' };
+    }
+    return { success: true, data: result };
+  }
+
+  @Post('groups/mtproto/invite-link/limited')
+  @ApiOperation({
+    summary: '(MTProto) Tạo link join có GIỚI HẠN số người',
+    description: 'Khi đạt đủ số lượng người join, link sẽ tự động hết hiệu lực.',
+  })
+  async createLimitedInviteLink(
+    @Body() dto: CreateMtprotoInviteLinkDto,
+  ): Promise<ApiResponse<{ inviteLink: string; requestNeeded: boolean; usageLimit?: number }>> {
+    if (!this.telegramClientService.isReady) {
+      return { success: false, error: 'UserBot MTProto chưa được cấu hình.' };
+    }
+
+    if (!dto.usageLimit || dto.usageLimit < 1) {
+      return { success: false, error: 'usageLimit phải >= 1' };
+    }
+
+    const result = await this.telegramClientService.createLimitedInviteLink(
+      dto.chatId,
+      dto.usageLimit,
+      dto.title,
+    );
+    if (!result) {
+      return { success: false, error: 'Tạo link giới hạn thất bại' };
+    }
+    return { success: true, data: result };
+  }
+
+  @Post('groups/mtproto/approve-join')
+  @ApiOperation({
+    summary: '(MTProto) Phê duyệt yêu cầu tham gia nhóm',
+    description: 'Accept user vào nhóm khi họ join bằng link cần duyệt (requestNeeded = true).',
+  })
+  async approveJoinMtproto(
+    @Body() dto: JoinRequestActionDto,
+  ): Promise<ApiResponse> {
+    if (!this.telegramClientService.isReady) {
+      return { success: false, error: 'UserBot MTProto chưa được cấu hình.' };
+    }
+
+    const result = await this.telegramClientService.approveJoinRequest(dto.chatId, dto.userId);
+    return {
+      success: result,
+      message: result ? `Đã duyệt user ${dto.userId} vào group` : 'Duyệt yêu cầu thất bại',
+    };
+  }
+
+  @Post('groups/mtproto/reject-join')
+  @ApiOperation({
+    summary: '(MTProto) Từ chối yêu cầu tham gia nhóm',
+    description: 'Reject user khi họ join bằng link cần duyệt (requestNeeded = true).',
+  })
+  async rejectJoinMtproto(
+    @Body() dto: JoinRequestActionDto,
+  ): Promise<ApiResponse> {
+    if (!this.telegramClientService.isReady) {
+      return { success: false, error: 'UserBot MTProto chưa được cấu hình.' };
+    }
+
+    const result = await this.telegramClientService.rejectJoinRequest(dto.chatId, dto.userId);
+    return {
+      success: result,
+      message: result ? `Đã từ chối user ${dto.userId}` : 'Từ chối yêu cầu thất bại',
     };
   }
 
