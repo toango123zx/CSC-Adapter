@@ -35,6 +35,8 @@ import {
   RenameGroupDto,
   CreateMtprotoInviteLinkDto,
   JoinRequestActionDto,
+  StartSessionDto,
+  VerifySessionDto,
 } from './dto/telegram-mtproto.dto';
 
 @ApiTags('Telegram API')
@@ -280,6 +282,60 @@ export class TelegramController {
     return {
       success: result,
       message: result ? `Đã từ chối user ${dto.userId}` : 'Từ chối yêu cầu thất bại',
+    };
+  }
+
+  // ================================================================
+  // SESSION TOKEN MANAGEMENT (MTProto)
+  // ================================================================
+
+  @Post('session/start')
+  @ApiOperation({
+    summary: '(MTProto) Bước 1: Khởi tạo đăng nhập Telegram — gửi OTP về SĐT',
+    description: 'Tạo phiên đăng nhập tạm thời. Telegram sẽ gửi mã OTP về số điện thoại. Sau đó gọi /telegram/session/verify để hoàn tất.',
+  })
+  async startSession(
+    @Body() dto: StartSessionDto,
+  ): Promise<ApiResponse<{ message: string }>> {
+    const result = await this.telegramClientService.startSessionAuth(
+      dto.apiId,
+      dto.apiHash,
+      dto.phoneNumber,
+    );
+
+    if (!result) {
+      return { success: false, error: 'Không thể gửi OTP. Kiểm tra lại apiId, apiHash và số điện thoại.' };
+    }
+
+    return {
+      success: true,
+      data: {
+        message: `Đã gửi OTP về SĐT ${dto.phoneNumber}. Gọi POST /telegram/session/verify với phoneCode để hoàn tất.`,
+      },
+    };
+  }
+
+  @Post('session/verify')
+  @ApiOperation({
+    summary: '(MTProto) Bước 2: Xác nhận OTP — lấy Session String',
+    description: 'Gửi mã OTP nhận được từ bước 1 để lấy TELEGRAM_SESSION_STRING. Nếu có 2FA, gửi kèm password.',
+  })
+  async verifySession(
+    @Body() dto: VerifySessionDto,
+  ): Promise<ApiResponse<{ sessionString: string }>> {
+    const sessionString = await this.telegramClientService.verifySessionAuth(
+      dto.phoneNumber,
+      dto.phoneCode,
+      dto.password,
+    );
+
+    if (!sessionString) {
+      return { success: false, error: 'Xác nhận OTP thất bại. Kiểm tra lại mã OTP hoặc gọi /telegram/session/start lại.' };
+    }
+
+    return {
+      success: true,
+      data: { sessionString },
     };
   }
 

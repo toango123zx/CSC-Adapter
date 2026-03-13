@@ -18,6 +18,7 @@ export class TelegramClientService implements OnModuleInit {
     }
 
     private async initClient() {
+
         const apiId = this.configService.get<number>('TELEGRAM_APP_API_ID');
         const apiHash = this.configService.get<string>('TELEGRAM_APP_API_HASH');
         const sessionString = this.configService.get<string>('TELEGRAM_SESSION_STRING', '');
@@ -45,7 +46,10 @@ export class TelegramClientService implements OnModuleInit {
 
             const me = await this.client.getMe() as Api.User;
             this.logger.log(`👤 UserBot MTProto đã kết nối thành công: ${me.firstName} (ID: ${me.id})`);
-        } catch (error) {
+        } catch (error: any) {
+            Logger.error('❌ Telegram client initialization failed:', 'TelegramClientService')
+            Logger.error(`Error messag  e: ${error.message}`, 'TelegramClientService')
+            Logger.error(`Stack trace: ${error.stack}`, 'TelegramClientService')
             this.logger.error('❌ Lỗi kết nối MTProto UserBot:', error);
         }
     }
@@ -345,17 +349,6 @@ export class TelegramClientService implements OnModuleInit {
     // INVITE LINK MANAGEMENT (UserBot)
     // ================================================================
 
-    /**
-     * Tạo invite link cho Group/Supergroup qua MTProto.
-     * Đây là hàm tổng quát — có thể tuỳ chỉnh: cần duyệt, giới hạn người, hết hạn, v.v.
-     * @param chatId ID của group
-     * @param options Tuỳ chọn tạo link:
-     *   - title: Tên hiển thị của link (ví dụ: "Link sự kiện")
-     *   - requestNeeded: true = cần Admin duyệt khi user join
-     *   - usageLimit: Số người tối đa có thể join qua link này (0 = không giới hạn)
-     *   - expireDate: Thời gian hết hạn (Unix timestamp giây)
-     * @returns Object chứa inviteLink và metadata, hoặc null nếu thất bại
-     */
     async createInviteLink(
         chatId: string,
         options?: {
@@ -535,4 +528,226 @@ export class TelegramClientService implements OnModuleInit {
             return false;
         }
     }
+
+    // ================================================================
+    // SESSION TOKEN GENERATION (MTProto)
+    // Tạo Session String qua API thay vì phải chạy script thủ công.
+    // Flow 2 bước: startSessionAuth() → verifySessionAuth()
+    // ================================================================
+
+    /**
+     * Map lưu trữ các phiên đăng nhập đang chờ xác nhận OTP.
+     * Key = phoneNumber, Value = { client, resolve/reject callbacks, timeout }
+     * Tự động dọn dẹp sau 5 phút nếu không xác nhận.
+     */
+    private pendingSessions = new Map<string, {
+        client: TelegramClient;
+        phoneCodeResolve?: (code: string) => void;
+        passwordResolve?: (password: string) => void;
+        sessionPromise: Promise<string>;
+        timeout: ReturnType<typeof setTimeout>;
+        failed?: boolean; // Đánh dấu phiên đã thất bại (tránh resolve sau khi cleanup)
+    }>();
+
+    /**
+     * Bước 1: Khởi tạo phiên đăng nhập Telegram và gửi mã OTP về số điện thoại.
+     * Server tạo TelegramClient tạm, bắt đầu flow đăng nhập, giữ trong memory chờ OTP.
+     *
+     * @param apiId Telegram App API ID (lấy từ https://my.telegram.org)
+     * @param apiHash Telegram App API Hash
+     * @param phoneNumber Số điện thoại Telegram (kèm mã quốc gia, vd: +84971751109)
+     * @returns true nếu đã gửi OTP thành công, false nếu thất bại
+     *
+     * ⚠️ Lưu ý bắt buộc: SĐT phải bao gồm MÃ QUỐC GIA (vd: +84 cho VN).
+     * Sai: +0971751109 — Đúng: +84971751109
+     *
+     * ⚠️ Session string tương đương mật khẩu tài khoản.
+     * Chỉ nên expose endpoint này trong môi trường internal/development.
+     */
+    async startSessionAuth(apiId: number, apiHash: string, phoneNumber: string): Promise<boolean> {
+        // Validate: SĐT phải bắt đầu bằng + và mã quốc gia (không phải +0)
+        if (!phoneNumber.startsWith('+') || phoneNumber.startsWith('+0')) {
+            this.logger.error(
+                `⚠️ SĐT "${phoneNumber}" không hợp lệ. Phải bao gồm mã quốc gia (vd: +84971751109 cho VN, +1... cho US).`
+            );
+            return false;
+        }
+
+        // Dọn dẹp phiên cũ nếu có (tránh rò rỉ memory)
+        if (this.pendingSessions.has(phoneNumber)) {
+            const old = this.pendingSessions.get(phoneNumber)!;
+            clearTimeout(old.timeout);
+            try { await old.client.disconnect(); } catch { /* ignore */ }
+            this.pendingSessions.delete(phoneNumber);
+            this.logger.warn(`🔄 Đã huỷ phiên đăng nhập cũ cho SĐT ${phoneNumber}`);
+        }
+
+        try {
+            const stringSession = new StringSession('');
+            const tempClient = new TelegramClient(stringSession, apiId, apiHash, {
+                connectionRetries: 5,
+                useWSS: true,
+                baseLogger: undefined, // Tắt log mặc định GramJS tránh nhiễu
+            });
+
+            await tempClient.connect();
+
+            // Tạo Promise để đợi OTP và password từ bước 2 (verifySessionAuth)
+            // phoneCodeResolve / passwordResolve sẽ được gán khi client.start() yêu cầu
+            let phoneCodeResolve: ((code: string) => void) | undefined;
+            let passwordResolve: ((password: string) => void) | undefined;
+            // Flag đánh dấu phiên đã fail sớm (SĐT sai, API key sai, etc.)
+            let earlyError: Error | null = null;
+
+            const sessionPromise = new Promise<string>((resolve, reject) => {
+                tempClient.start({
+                    phoneNumber: async () => phoneNumber,
+                    // Khi Telegram yêu cầu mã OTP → tạo Promise chờ verifySessionAuth() gọi resolve
+                    phoneCode: async () => {
+                        return new Promise<string>((codeResolve) => {
+                            phoneCodeResolve = codeResolve;
+                            // Cập nhật vào Map để verifySessionAuth có thể gọi resolve
+                            const session = this.pendingSessions.get(phoneNumber);
+                            if (session) {
+                                session.phoneCodeResolve = codeResolve;
+                            }
+                        });
+                    },
+                    // Khi Telegram yêu cầu mật khẩu 2FA → tạo Promise chờ verifySessionAuth()
+                    password: async () => {
+                        return new Promise<string>((passResolve) => {
+                            passwordResolve = passResolve;
+                            const session = this.pendingSessions.get(phoneNumber);
+                            if (session) {
+                                session.passwordResolve = passResolve;
+                            }
+                        });
+                    },
+                    onError: (err) => {
+                        this.logger.error(`❌ Lỗi trong quá trình đăng nhập (${phoneNumber}): ${err.message}`);
+                        // Không reject ở đây — để catch bên dưới xử lý
+                    },
+                }).then(() => {
+                    // Đăng nhập thành công → lấy session string
+                    const session = tempClient.session.save() as unknown as string;
+                    resolve(session);
+                }).catch((err) => {
+                    earlyError = err;
+                    reject(err);
+                });
+            });
+
+            // ⚠️ QUAN TRỌNG: Gắn .catch() ngay lập tức để tránh Unhandled Promise Rejection crash server
+            // Lỗi thực tế sẽ được xử lý khi verifySessionAuth() await sessionPromise
+            sessionPromise.catch((err) => {
+                this.logger.error(`❌ Phiên đăng nhập ${phoneNumber} thất bại: ${err.message}`);
+                // Tự dọn dẹp phiên lỗi
+                const session = this.pendingSessions.get(phoneNumber);
+                if (session) {
+                    session.failed = true;
+                    clearTimeout(session.timeout);
+                    try { tempClient.disconnect(); } catch { /* ignore */ }
+                    this.pendingSessions.delete(phoneNumber);
+                }
+            });
+
+            // Auto-cleanup sau 5 phút nếu không xác nhận OTP
+            const timeout = setTimeout(async () => {
+                this.logger.warn(`⏰ Phiên đăng nhập cho ${phoneNumber} đã hết hạn (5 phút). Tự động huỷ.`);
+                try { await tempClient.disconnect(); } catch { /* ignore */ }
+                this.pendingSessions.delete(phoneNumber);
+            }, 5 * 60 * 1000);
+
+            // Lưu vào Map để verifySessionAuth() có thể truy cập
+            this.pendingSessions.set(phoneNumber, {
+                client: tempClient,
+                phoneCodeResolve,
+                passwordResolve,
+                sessionPromise,
+                timeout,
+            });
+
+            // Đợi ngắn (3 giây) để bắt lỗi sớm: SĐT sai format, API key sai, etc.
+            // Nếu GramJS reject nhanh (vd: PHONE_NUMBER_INVALID) → return false ngay
+            // Nếu không có lỗi sau 3s → OTP đã được gửi thành công
+            await new Promise(resolve => setTimeout(resolve, 3000));
+
+            if (earlyError) {
+                // Lỗi đã xảy ra trong 3 giây đầu → cleanup đã được .catch() xử lý
+                this.logger.error(`❌ Lỗi khởi tạo phiên cho ${phoneNumber}: ${(earlyError as Error).message}`);
+                return false;
+            }
+
+            this.logger.log(`📨 Đã gửi yêu cầu OTP cho SĐT ${phoneNumber}. Chờ xác nhận từ /telegram/session/verify`);
+            return true;
+        } catch (error: unknown) {
+            const msg = error instanceof Error ? error.message : 'Unknown error';
+            this.logger.error(`❌ Lỗi khởi tạo phiên đăng nhập cho ${phoneNumber}: ${msg}`);
+            return false;
+        }
+    }
+
+    /**
+     * Bước 2: Xác nhận mã OTP (và password 2FA nếu có) để hoàn tất đăng nhập.
+     * Trả về Session String — chuỗi dùng để cấu hình TELEGRAM_SESSION_STRING trong .env.
+     *
+     * @param phoneNumber Số điện thoại đã dùng ở bước 1
+     * @param phoneCode Mã OTP Telegram gửi về SĐT
+     * @param password Mật khẩu 2FA (nếu tài khoản có bật Two-Step Verification)
+     * @returns Session string nếu thành công, null nếu thất bại
+     */
+    async verifySessionAuth(phoneNumber: string, phoneCode: string, password?: string): Promise<string | null> {
+        const session = this.pendingSessions.get(phoneNumber);
+        if (!session) {
+            this.logger.error(`⚠️ Không tìm thấy phiên đăng nhập cho SĐT ${phoneNumber}. Hãy gọi /telegram/session/start trước.`);
+            return null;
+        }
+
+        try {
+            // Giải quyết OTP → GramJS tiếp tục flow đăng nhập
+            if (session.phoneCodeResolve) {
+                session.phoneCodeResolve(phoneCode);
+            } else {
+                this.logger.error(`⚠️ Phiên ${phoneNumber} chưa sẵn sàng nhận OTP. Thử lại sau vài giây.`);
+                return null;
+            }
+
+            // Nếu có password 2FA → đợi 1 chút rồi resolve password
+            if (password) {
+                // Đợi ngắn để GramJS chuyển sang bước yêu cầu password
+                await new Promise(resolve => setTimeout(resolve, 2000));
+                const updatedSession = this.pendingSessions.get(phoneNumber);
+                if (updatedSession?.passwordResolve) {
+                    updatedSession.passwordResolve(password);
+                }
+            }
+
+            // Đợi flow đăng nhập hoàn tất (timeout 120 giây = 2 phút)
+            const sessionString = await Promise.race([
+                session.sessionPromise,
+                new Promise<string>((_, reject) =>
+                    setTimeout(() => reject(new Error('Timeout: Xác nhận OTP quá 120 giây')), 120000)
+                ),
+            ]);
+
+            // Dọn dẹp: xoá khỏi Map, huỷ timeout, ngắt kết nối client tạm
+            clearTimeout(session.timeout);
+            try { await session.client.disconnect(); } catch { /* ignore */ }
+            this.pendingSessions.delete(phoneNumber);
+
+            this.logger.log(`✅ Đã tạo Session String thành công cho SĐT ${phoneNumber}`);
+            return sessionString;
+        } catch (error: unknown) {
+            const msg = error instanceof Error ? error.message : 'Unknown error';
+            this.logger.error(`❌ Lỗi xác nhận OTP cho ${phoneNumber}: ${msg}`);
+
+            // Dọn dẹp khi thất bại
+            clearTimeout(session.timeout);
+            try { await session.client.disconnect(); } catch { /* ignore */ }
+            this.pendingSessions.delete(phoneNumber);
+
+            return null;
+        }
+    }
 }
+

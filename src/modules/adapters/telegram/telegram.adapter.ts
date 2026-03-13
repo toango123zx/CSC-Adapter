@@ -140,6 +140,8 @@ export class TelegramAdapter implements IChatAdapter, OnModuleInit {
     // Khi user click vào invite link có requestNeeded = true → Telegram gửi update chat_join_request
     // Listener này log chi tiết ra terminal để admin biết có người chờ duyệt
     this.telegramService.registerHandler('chat_join_request' as any, async (ctx: Context) => {
+      console.log("🚀 ~ TelegramAdapter ~ setupListeners ~ chat_join_request:")
+      console.log("🚀 ~ TelegramAdapter ~ setupListeners ~ ctx.update:", ctx.update)
       try {
         const update = ctx.update as any;
         const joinRequest = update.chat_join_request;

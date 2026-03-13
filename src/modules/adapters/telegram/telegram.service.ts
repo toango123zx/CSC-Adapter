@@ -41,9 +41,19 @@ export class TelegramService implements OnModuleDestroy {
 
   /**
    * Khởi chạy bot. Gọi SAU KHI tất cả handlers đã đăng ký.
+   * ⚠️ Bọc trong try-catch vì Telegraf sẽ throw 409 Conflict nếu có instance cũ chưa dừng polling.
    */
   launch(): void {
-    this.bot.launch();
+    this.bot.launch().catch((err: any) => {
+      // 409 Conflict = instance cũ chưa dừng polling (hot-reload, restart nhanh)
+      // → Không crash server, tự retry sau 5 giây
+      if (err?.response?.error_code === 409) {
+        this.logger.warn('⚠️ Bot polling conflict (409) — có instance cũ chưa dừng. Retry sau 5 giây...');
+        setTimeout(() => this.launch(), 5000);
+      } else {
+        this.logger.error(`❌ Lỗi khởi chạy bot: ${err?.message || err}`);
+      }
+    });
     this.logger.log('🤖 Telegram Bot đã khởi chạy!');
   }
 

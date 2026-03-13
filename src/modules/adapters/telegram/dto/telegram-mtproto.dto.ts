@@ -152,3 +152,50 @@ export class JoinRequestActionDto {
     @IsNotEmpty()
     userId!: string;
 }
+
+// ================================================================
+// SESSION TOKEN GENERATION (MTProto)
+// ================================================================
+
+/**
+ * DTO bước 1: Khởi tạo phiên đăng nhập Telegram.
+ * Server sẽ gửi mã OTP về số điện thoại → client cần gọi VerifySessionDto để hoàn tất.
+ */
+export class StartSessionDto {
+    @ApiProperty({ description: 'Telegram App API ID (lấy từ https://my.telegram.org)', example: 30144129 })
+    @IsInt()
+    @IsNotEmpty()
+    apiId!: number;
+
+    @ApiProperty({ description: 'Telegram App API Hash (lấy từ https://my.telegram.org)', example: '69705ceef69ae3f115c71b935176cb0a' })
+    @IsString()
+    @IsNotEmpty()
+    apiHash!: string;
+
+    @ApiProperty({ description: 'Số điện thoại đăng ký Telegram (bao gồm mã quốc gia)', example: '+84901234567' })
+    @IsString()
+    @IsNotEmpty()
+    phoneNumber!: string;
+}
+
+/**
+ * DTO bước 2: Xác nhận mã OTP để lấy Session String.
+ * Gửi phoneCode mà Telegram gửi về số điện thoại ở bước 1.
+ * Nếu tài khoản có bật 2FA → cần gửi kèm password.
+ */
+export class VerifySessionDto {
+    @ApiProperty({ description: 'Số điện thoại đã dùng ở bước 1 (để server map lại phiên)', example: '+84901234567' })
+    @IsString()
+    @IsNotEmpty()
+    phoneNumber!: string;
+
+    @ApiProperty({ description: 'Mã OTP mà Telegram gửi về số điện thoại', example: '12345' })
+    @IsString()
+    @IsNotEmpty()
+    phoneCode!: string;
+
+    @ApiPropertyOptional({ description: 'Mật khẩu 2FA (nếu tài khoản có bật Two-Step Verification)' })
+    @IsOptional()
+    @IsString()
+    password?: string;
+}

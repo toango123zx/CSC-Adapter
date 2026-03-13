@@ -1,0 +1,41 @@
+📚 Mở Swagger UI tại: http: //localhost:3000/api/docs
+🚀 ~ TelegramAdapter ~ setupListeners ~ chat_join_request:
+🚀 ~ TelegramAdapter ~ setupListeners ~ ctx.update: {
+  update_id: 729683309,
+  chat_join_request: {
+    chat: {
+      id: -1003859065420,
+      title: 'CSC Test Room 1 26.02.2026',
+      type: 'supergroup'
+        },
+    from: {
+      id: 7227521953,
+      is_bot: false,
+      first_name: 'LUAN',
+      last_name: 'Hoang',
+      language_code: 'vi'
+        },
+    user_chat_id: 7227521953,
+    date: 1773283198,
+    invite_link: {
+      invite_link: 'https: //t.me/+iD9miT6Y...',
+      creator: [Object
+            ],
+      pending_join_request_count: 1,
+      creates_join_request: true,
+      is_primary: false,
+      is_revoked: false
+        }
+    }
+}
+[Nest
+] 27299  - 03/12/2026,
+9: 39: 58 AM     LOG [TelegramAdapter
+] 📨 [JOIN REQUEST
+] User yêu cầu tham gia nhóm CẦN DUYỆT:
+   📋 Group: "CSC Test Room 1 26.02.2026" (ID: -1003859065420)
+   👤 User: LUAN Hoang (ID: 7227521953)
+   🔗 Link invite: https: //t.me/+iD9miT6Y...
+   📝 Bio: Không có
+   🕒 Thời gian: 09: 39: 58 12/3/2026
+   ⏳ Trạng thái: ĐANG CHỜ DUYỆT — Dùng endpoint POST /telegram/groups/mtproto/approve-join hoặc reject-join
