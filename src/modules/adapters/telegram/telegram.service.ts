@@ -489,4 +489,253 @@ export class TelegramService implements OnModuleDestroy {
       return false;
     }
   }
+
+  // ============ REMOVE MEMBER (Ban + Unban ngay = Xóa sạch, KHÔNG cấm join lại) ============
+
+  /**
+   * Xóa thành viên khỏi group — KHÔNG cấm join lại.
+   * Logic: banChatMember() rồi unbanChatMember() ngay lập tức.
+   * Kết quả: user bị xóa khỏi group nhưng vẫn có thể join lại qua link mời.
+   *
+   * ⚠️ Khác với kickMember(): kickMember chỉ BAN (cấm vĩnh viễn).
+   * removeMember = ban + unban = xóa sạch nhưng mở cửa cho user quay lại.
+   *
+   * Bot phải là admin với quyền ban_users mới xóa được.
+   */
+  async removeMember(chatId: string, userId: number): Promise<boolean> {
+    try {
+      // Bước 1: Ban user (xóa khỏi group)
+      await this.bot.telegram.banChatMember(chatId, userId);
+      this.logger.debug(`🔒 Bước 1/2: Đã ban user ${userId} khỏi ${chatId}`);
+
+      // Bước 2: Unban ngay lập tức (cho phép join lại)
+      await this.bot.telegram.unbanChatMember(chatId, userId, {
+        only_if_banned: true,
+      });
+      this.logger.log(`🚪 Đã XÓA user ${userId} khỏi group ${chatId} (không cấm join lại)`);
+      return true;
+    } catch (error: unknown) {
+      const msg = error instanceof Error ? error.message : 'Unknown error';
+      this.logger.error(`❌ removeMember(${chatId}, ${userId}): ${msg}`);
+      return false;
+    }
+  }
+
+  // ============ GET CHAT ADMINISTRATORS ============
+
+  /**
+   * Lấy danh sách admin của group/supergroup.
+   * Trả về array gồm thông tin admin + quyền hạn.
+   */
+  async getChatAdministrators(chatId: string): Promise<Record<string, unknown>[]> {
+    try {
+      const admins = await this.bot.telegram.getChatAdministrators(chatId);
+      this.logger.log(`👑 Lấy ${admins.length} admin từ chat ${chatId}`);
+      return admins as unknown as Record<string, unknown>[];
+    } catch (error: unknown) {
+      const msg = error instanceof Error ? error.message : 'Unknown error';
+      this.logger.error(`❌ getChatAdministrators(${chatId}): ${msg}`);
+      throw error;
+    }
+  }
+
+  // ============ RESTRICT MEMBER (Mute / Limit permissions) ============
+
+  /**
+   * Giới hạn quyền của thành viên trong group (mute, cấm gửi media, etc.).
+   * Truyền tất cả permissions = false để mute hoàn toàn.
+   * Truyền tất cả = true để khôi phục quyền mặc định.
+   *
+   * @param untilDate Unix timestamp (giây). 0 = vĩnh viễn. Nếu < 30 giây hoặc > 366 ngày → Telegram coi là vĩnh viễn.
+   */
+  async restrictMember(
+    chatId: string,
+    userId: number,
+    permissions: {
+      can_send_messages?: boolean;
+      can_send_media_messages?: boolean;
+      can_send_polls?: boolean;
+      can_send_other_messages?: boolean;
+      can_add_web_page_previews?: boolean;
+      can_change_info?: boolean;
+      can_invite_users?: boolean;
+      can_pin_messages?: boolean;
+    },
+    untilDate?: number,
+  ): Promise<boolean> {
+    try {
+      await this.bot.telegram.restrictChatMember(chatId, userId, {
+        permissions,
+        until_date: untilDate,
+      });
+      this.logger.log(`🔇 Đã restrict user ${userId} trong ${chatId}`);
+      return true;
+    } catch (error: unknown) {
+      const msg = error instanceof Error ? error.message : 'Unknown error';
+      this.logger.error(`❌ restrictMember(${chatId}, ${userId}): ${msg}`);
+      return false;
+    }
+  }
+
+  // ============ PROMOTE MEMBER (Phong Admin qua Bot API) ============
+
+  /**
+   * Phong hoặc hạ quyền Admin cho thành viên trong group.
+   * Truyền tất cả rights = true để phong full admin.
+   * Truyền tất cả = false để hạ quyền về member thường.
+   */
+  async promoteMember(
+    chatId: string,
+    userId: number,
+    rights: {
+      can_change_info?: boolean;
+      can_post_messages?: boolean;
+      can_edit_messages?: boolean;
+      can_delete_messages?: boolean;
+      can_invite_users?: boolean;
+      can_restrict_members?: boolean;
+      can_pin_messages?: boolean;
+      can_promote_members?: boolean;
+      can_manage_video_chats?: boolean;
+      can_manage_chat?: boolean;
+    },
+  ): Promise<boolean> {
+    try {
+      await this.bot.telegram.promoteChatMember(chatId, userId, rights);
+      this.logger.log(`👑 Đã promote user ${userId} trong ${chatId}`);
+      return true;
+    } catch (error: unknown) {
+      const msg = error instanceof Error ? error.message : 'Unknown error';
+      this.logger.error(`❌ promoteMember(${chatId}, ${userId}): ${msg}`);
+      return false;
+    }
+  }
+
+  // ============ CHAT PHOTO ============
+
+  /**
+   * Đặt ảnh đại diện cho group/supergroup.
+   * Bot phải là admin với quyền change_info.
+   */
+  async setChatPhoto(chatId: string, photoUrl: string): Promise<boolean> {
+    try {
+      await this.bot.telegram.setChatPhoto(chatId, { source: photoUrl });
+      this.logger.log(`📷 Đã đặt ảnh đại diện cho chat ${chatId}`);
+      return true;
+    } catch (error: unknown) {
+      const msg = error instanceof Error ? error.message : 'Unknown error';
+      this.logger.error(`❌ setChatPhoto(${chatId}): ${msg}`);
+      return false;
+    }
+  }
+
+  /**
+   * Xóa ảnh đại diện group/supergroup.
+   */
+  async deleteChatPhoto(chatId: string): Promise<boolean> {
+    try {
+      await this.bot.telegram.deleteChatPhoto(chatId);
+      this.logger.log(`🗑️ Đã xóa ảnh đại diện chat ${chatId}`);
+      return true;
+    } catch (error: unknown) {
+      const msg = error instanceof Error ? error.message : 'Unknown error';
+      this.logger.error(`❌ deleteChatPhoto(${chatId}): ${msg}`);
+      return false;
+    }
+  }
+
+  // ============ SEND — VIDEO ============
+
+  async sendVideo(
+    chatId: string,
+    videoUrl: string,
+    caption?: string,
+  ): Promise<boolean> {
+    try {
+      await this.bot.telegram.sendVideo(chatId, videoUrl, { caption });
+      this.logger.log(`📤 Video → ${chatId}`);
+      return true;
+    } catch (error: unknown) {
+      const msg = error instanceof Error ? error.message : 'Unknown error';
+      this.logger.error(`❌ sendVideo(${chatId}): ${msg}`);
+      return false;
+    }
+  }
+
+  // ============ SEND — STICKER ============
+
+  async sendSticker(chatId: string, sticker: string): Promise<boolean> {
+    try {
+      await this.bot.telegram.sendSticker(chatId, sticker);
+      this.logger.log(`📤 Sticker → ${chatId}`);
+      return true;
+    } catch (error: unknown) {
+      const msg = error instanceof Error ? error.message : 'Unknown error';
+      this.logger.error(`❌ sendSticker(${chatId}): ${msg}`);
+      return false;
+    }
+  }
+
+  // ============ FORWARD / COPY MESSAGE ============
+
+  /**
+   * Chuyển tiếp tin nhắn từ chat này sang chat khác.
+   * Tin nhắn forward sẽ hiển thị "Forwarded from ..." ở phía người nhận.
+   */
+  async forwardMessage(
+    chatId: string,
+    fromChatId: string,
+    messageId: number,
+  ): Promise<boolean> {
+    try {
+      await this.bot.telegram.forwardMessage(chatId, fromChatId, messageId);
+      this.logger.log(`↗️ Forward message ${messageId}: ${fromChatId} → ${chatId}`);
+      return true;
+    } catch (error: unknown) {
+      const msg = error instanceof Error ? error.message : 'Unknown error';
+      this.logger.error(`❌ forwardMessage(${chatId}): ${msg}`);
+      return false;
+    }
+  }
+
+  /**
+   * Sao chép tin nhắn sang chat khác (không hiện "Forwarded from").
+   * Giống forward nhưng tin nhắn mới trông như tin nhắn bình thường.
+   */
+  async copyMessage(
+    chatId: string,
+    fromChatId: string,
+    messageId: number,
+    caption?: string,
+  ): Promise<boolean> {
+    try {
+      await this.bot.telegram.copyMessage(chatId, fromChatId, messageId, {
+        caption,
+      });
+      this.logger.log(`📋 Copy message ${messageId}: ${fromChatId} → ${chatId}`);
+      return true;
+    } catch (error: unknown) {
+      const msg = error instanceof Error ? error.message : 'Unknown error';
+      this.logger.error(`❌ copyMessage(${chatId}): ${msg}`);
+      return false;
+    }
+  }
+
+  // ============ UNPIN ALL MESSAGES ============
+
+  /**
+   * Bỏ ghim TẤT CẢ tin nhắn trong chat.
+   */
+  async unpinAllMessages(chatId: string): Promise<boolean> {
+    try {
+      await this.bot.telegram.unpinAllChatMessages(chatId);
+      this.logger.log(`📌 Đã bỏ ghim tất cả tin nhắn trong ${chatId}`);
+      return true;
+    } catch (error: unknown) {
+      const msg = error instanceof Error ? error.message : 'Unknown error';
+      this.logger.error(`❌ unpinAllMessages(${chatId}): ${msg}`);
+      return false;
+    }
+  }
 }
+

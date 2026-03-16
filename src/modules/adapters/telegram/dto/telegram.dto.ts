@@ -209,3 +209,215 @@ export class MessageActionDto {
     @IsInt()
     messageId!: number;
 }
+
+// ================================================================
+// RESTRICT / PROMOTE MEMBER
+// ================================================================
+
+export class RestrictMemberDto {
+    @ApiProperty({ description: 'Telegram Chat/Group ID', example: '-1001234567890' })
+    @IsString()
+    @IsNotEmpty()
+    chatId!: string;
+
+    @ApiProperty({ description: 'Telegram User ID', example: 123456789 })
+    @IsInt()
+    userId!: number;
+
+    @ApiPropertyOptional({ description: 'Cho phép gửi tin nhắn text', default: false })
+    @IsOptional()
+    @IsBoolean()
+    canSendMessages?: boolean;
+
+    @ApiPropertyOptional({ description: 'Cho phép gửi ảnh/video/file/sticker', default: false })
+    @IsOptional()
+    @IsBoolean()
+    canSendMediaMessages?: boolean;
+
+    @ApiPropertyOptional({ description: 'Cho phép gửi polls', default: false })
+    @IsOptional()
+    @IsBoolean()
+    canSendPolls?: boolean;
+
+    @ApiPropertyOptional({ description: 'Cho phép gửi GIF/game/sticker', default: false })
+    @IsOptional()
+    @IsBoolean()
+    canSendOtherMessages?: boolean;
+
+    @ApiPropertyOptional({ description: 'Cho phép thêm web page preview', default: false })
+    @IsOptional()
+    @IsBoolean()
+    canAddWebPagePreviews?: boolean;
+
+    @ApiPropertyOptional({ description: 'Cho phép thay đổi thông tin group', default: false })
+    @IsOptional()
+    @IsBoolean()
+    canChangeInfo?: boolean;
+
+    @ApiPropertyOptional({ description: 'Cho phép mời thành viên', default: false })
+    @IsOptional()
+    @IsBoolean()
+    canInviteUsers?: boolean;
+
+    @ApiPropertyOptional({ description: 'Cho phép ghim tin nhắn', default: false })
+    @IsOptional()
+    @IsBoolean()
+    canPinMessages?: boolean;
+
+    @ApiPropertyOptional({ description: 'Thời gian restrict (Unix timestamp giây, 0 = vĩnh viễn)', default: 0 })
+    @IsOptional()
+    @IsInt()
+    untilDate?: number;
+}
+
+export class PromoteMemberDto {
+    @ApiProperty({ description: 'Telegram Chat/Group ID', example: '-1001234567890' })
+    @IsString()
+    @IsNotEmpty()
+    chatId!: string;
+
+    @ApiProperty({ description: 'Telegram User ID', example: 123456789 })
+    @IsInt()
+    userId!: number;
+
+    @ApiPropertyOptional({ description: 'Quyền thay đổi thông tin group', default: false })
+    @IsOptional()
+    @IsBoolean()
+    canChangeInfo?: boolean;
+
+    @ApiPropertyOptional({ description: 'Quyền đăng bài (channel)', default: false })
+    @IsOptional()
+    @IsBoolean()
+    canPostMessages?: boolean;
+
+    @ApiPropertyOptional({ description: 'Quyền sửa bài (channel)', default: false })
+    @IsOptional()
+    @IsBoolean()
+    canEditMessages?: boolean;
+
+    @ApiPropertyOptional({ description: 'Quyền xóa tin nhắn', default: false })
+    @IsOptional()
+    @IsBoolean()
+    canDeleteMessages?: boolean;
+
+    @ApiPropertyOptional({ description: 'Quyền mời thành viên', default: false })
+    @IsOptional()
+    @IsBoolean()
+    canInviteUsers?: boolean;
+
+    @ApiPropertyOptional({ description: 'Quyền hạn chế thành viên', default: false })
+    @IsOptional()
+    @IsBoolean()
+    canRestrictMembers?: boolean;
+
+    @ApiPropertyOptional({ description: 'Quyền ghim tin nhắn', default: false })
+    @IsOptional()
+    @IsBoolean()
+    canPinMessages?: boolean;
+
+    @ApiPropertyOptional({ description: 'Quyền phong Admin khác', default: false })
+    @IsOptional()
+    @IsBoolean()
+    canPromoteMembers?: boolean;
+
+    @ApiPropertyOptional({ description: 'Quyền quản lý video chat', default: false })
+    @IsOptional()
+    @IsBoolean()
+    canManageVideoChats?: boolean;
+
+    @ApiPropertyOptional({ description: 'Quyền quản lý chat', default: false })
+    @IsOptional()
+    @IsBoolean()
+    canManageChat?: boolean;
+}
+
+// ================================================================
+// CHAT PHOTO
+// ================================================================
+
+export class SetChatPhotoDto {
+    @ApiProperty({ description: 'Telegram Chat/Group ID', example: '-1001234567890' })
+    @IsString()
+    @IsNotEmpty()
+    chatId!: string;
+
+    @ApiProperty({ description: 'URL ảnh đại diện cho group', example: 'https://example.com/avatar.png' })
+    @IsString()
+    @IsNotEmpty()
+    photoUrl!: string;
+}
+
+// ================================================================
+// SEND — VIDEO / STICKER
+// ================================================================
+
+export class SendTelegramVideoDto {
+    @ApiProperty({ description: 'Telegram Chat ID', example: '123456789' })
+    @IsString()
+    @IsNotEmpty()
+    chatId!: string;
+
+    @ApiProperty({ description: 'URL video cần gửi', example: 'https://example.com/video.mp4' })
+    @IsString()
+    @IsNotEmpty()
+    videoUrl!: string;
+
+    @ApiPropertyOptional({ description: 'Caption cho video' })
+    @IsOptional()
+    @IsString()
+    caption?: string;
+}
+
+export class SendTelegramStickerDto {
+    @ApiProperty({ description: 'Telegram Chat ID', example: '123456789' })
+    @IsString()
+    @IsNotEmpty()
+    chatId!: string;
+
+    @ApiProperty({ description: 'Sticker file_id hoặc URL', example: 'CAACAgIAAxkBAAI...' })
+    @IsString()
+    @IsNotEmpty()
+    sticker!: string;
+}
+
+// ================================================================
+// FORWARD / COPY MESSAGE
+// ================================================================
+
+export class ForwardMessageDto {
+    @ApiProperty({ description: 'Chat ID đích (nơi nhận)', example: '123456789' })
+    @IsString()
+    @IsNotEmpty()
+    chatId!: string;
+
+    @ApiProperty({ description: 'Chat ID nguồn (nơi tin nhắn gốc)', example: '-1001234567890' })
+    @IsString()
+    @IsNotEmpty()
+    fromChatId!: string;
+
+    @ApiProperty({ description: 'ID tin nhắn cần forward', example: 42 })
+    @IsInt()
+    messageId!: number;
+}
+
+export class CopyMessageDto {
+    @ApiProperty({ description: 'Chat ID đích (nơi nhận bản sao)', example: '123456789' })
+    @IsString()
+    @IsNotEmpty()
+    chatId!: string;
+
+    @ApiProperty({ description: 'Chat ID nguồn (nơi tin nhắn gốc)', example: '-1001234567890' })
+    @IsString()
+    @IsNotEmpty()
+    fromChatId!: string;
+
+    @ApiProperty({ description: 'ID tin nhắn cần copy', example: 42 })
+    @IsInt()
+    messageId!: number;
+
+    @ApiPropertyOptional({ description: 'Caption mới (thay thế caption gốc)' })
+    @IsOptional()
+    @IsString()
+    caption?: string;
+}
+

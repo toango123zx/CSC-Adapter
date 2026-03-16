@@ -19,13 +19,20 @@ import {
   SendTelegramDocumentDto,
   SendTelegramLocationDto,
   SendTelegramContactDto,
+  SendTelegramVideoDto,
+  SendTelegramStickerDto,
   ChatIdDto,
   CreateInviteLinkDto,
   SetChatTitleDto,
   SetChatDescriptionDto,
+  SetChatPhotoDto,
   MemberActionDto,
+  RestrictMemberDto,
+  PromoteMemberDto,
   EditMessageDto,
   MessageActionDto,
+  ForwardMessageDto,
+  CopyMessageDto,
 } from './dto/telegram.dto';
 import {
   CreateSoloGroupDto,
@@ -37,6 +44,8 @@ import {
   JoinRequestActionDto,
   StartSessionDto,
   VerifySessionDto,
+  RemoveMemberDto,
+  SetGroupAboutDto,
 } from './dto/telegram-mtproto.dto';
 
 @ApiTags('Telegram API')
@@ -566,6 +575,21 @@ export class TelegramController {
     };
   }
 
+  @Delete('members/remove')
+  @ApiOperation({
+    summary: 'Xóa thành viên khỏi group — KHÔNG cấm join lại (ban + unban ngay)',
+    description: 'Logic: banChatMember() → unbanChatMember() ngay lập tức. User bị xóa nhưng vẫn có thể join lại qua link mời. Khác với kick (ban vĩnh viễn).',
+  })
+  async removeMember(
+    @Body() dto: MemberActionDto,
+  ): Promise<ApiResponse> {
+    const result = await this.telegramService.removeMember(dto.chatId, dto.userId);
+    return {
+      success: result,
+      message: result ? 'Đã xóa user khỏi group (không cấm join lại)' : 'Xóa thất bại (bot cần quyền admin)',
+    };
+  }
+
   @Post('members/unban')
   @ApiOperation({ summary: 'Unban user — cho phép tham gia lại group' })
   async unbanMember(
@@ -575,6 +599,65 @@ export class TelegramController {
     return {
       success: result,
       message: result ? 'Đã unban user' : 'Unban thất bại',
+    };
+  }
+
+  @Post('members/restrict')
+  @ApiOperation({
+    summary: 'Giới hạn quyền thành viên (mute/restrict)',
+    description: 'Truyền tất cả permissions = false để mute hoàn toàn. Truyền tất cả = true để khôi phục quyền.',
+  })
+  async restrictMember(
+    @Body() dto: RestrictMemberDto,
+  ): Promise<ApiResponse> {
+    const result = await this.telegramService.restrictMember(
+      dto.chatId,
+      dto.userId,
+      {
+        can_send_messages: dto.canSendMessages,
+        can_send_media_messages: dto.canSendMediaMessages,
+        can_send_polls: dto.canSendPolls,
+        can_send_other_messages: dto.canSendOtherMessages,
+        can_add_web_page_previews: dto.canAddWebPagePreviews,
+        can_change_info: dto.canChangeInfo,
+        can_invite_users: dto.canInviteUsers,
+        can_pin_messages: dto.canPinMessages,
+      },
+      dto.untilDate,
+    );
+    return {
+      success: result,
+      message: result ? 'Đã restrict thành viên' : 'Restrict thất bại',
+    };
+  }
+
+  @Post('members/promote')
+  @ApiOperation({
+    summary: 'Phong hoặc hạ quyền Admin cho thành viên',
+    description: 'Truyền tất cả rights = true để phong full admin. Truyền tất cả = false để hạ quyền.',
+  })
+  async promoteMember(
+    @Body() dto: PromoteMemberDto,
+  ): Promise<ApiResponse> {
+    const result = await this.telegramService.promoteMember(
+      dto.chatId,
+      dto.userId,
+      {
+        can_change_info: dto.canChangeInfo,
+        can_post_messages: dto.canPostMessages,
+        can_edit_messages: dto.canEditMessages,
+        can_delete_messages: dto.canDeleteMessages,
+        can_invite_users: dto.canInviteUsers,
+        can_restrict_members: dto.canRestrictMembers,
+        can_pin_messages: dto.canPinMessages,
+        can_promote_members: dto.canPromoteMembers,
+        can_manage_video_chats: dto.canManageVideoChats,
+        can_manage_chat: dto.canManageChat,
+      },
+    );
+    return {
+      success: result,
+      message: result ? 'Đã cập nhật quyền admin' : 'Cập nhật quyền thất bại',
     };
   }
 
@@ -594,6 +677,114 @@ export class TelegramController {
       const msg = error instanceof Error ? error.message : 'Unknown error';
       return { success: false, error: msg };
     }
+  }
+
+  @Get('chats/:chatId/admins')
+  @ApiOperation({ summary: 'Lấy danh sách admin của group/supergroup' })
+  async getChatAdministrators(
+    @Param('chatId') chatId: string,
+  ): Promise<ApiResponse<Record<string, unknown>[]>> {
+    try {
+      const admins = await this.telegramService.getChatAdministrators(chatId);
+      return { success: true, data: admins };
+    } catch (error: unknown) {
+      const msg = error instanceof Error ? error.message : 'Unknown error';
+      return { success: false, error: msg };
+    }
+  }
+
+  // ================================================================
+  // GROUP PHOTO
+  // ================================================================
+
+  @Patch('groups/photo')
+  @ApiOperation({ summary: 'Đặt ảnh đại diện cho group (bot phải là admin)' })
+  async setChatPhoto(
+    @Body() dto: SetChatPhotoDto,
+  ): Promise<ApiResponse> {
+    const result = await this.telegramService.setChatPhoto(dto.chatId, dto.photoUrl);
+    return {
+      success: result,
+      message: result ? 'Đã đặt ảnh đại diện group' : 'Đặt ảnh thất bại',
+    };
+  }
+
+  @Delete('groups/photo')
+  @ApiOperation({ summary: 'Xóa ảnh đại diện group' })
+  async deleteChatPhoto(
+    @Body() dto: ChatIdDto,
+  ): Promise<ApiResponse> {
+    const result = await this.telegramService.deleteChatPhoto(dto.chatId);
+    return {
+      success: result,
+      message: result ? 'Đã xóa ảnh đại diện group' : 'Xóa ảnh thất bại',
+    };
+  }
+
+  // ================================================================
+  // MTPROTO — REMOVE MEMBER / GET MEMBERS / SET ABOUT
+  // ================================================================
+
+  @Delete('groups/mtproto/remove-member')
+  @ApiOperation({
+    summary: '(MTProto) Xóa thành viên khỏi Group — KHÔNG cấm join lại',
+    description: 'Xóa user khỏi group qua MTProto UserBot. Hỗ trợ cả Basic Group và Supergroup. User vẫn có thể join lại qua link mời.',
+  })
+  async removeMemberMtproto(
+    @Body() dto: RemoveMemberDto,
+  ): Promise<ApiResponse> {
+    if (!this.telegramClientService.isReady) {
+      return { success: false, error: 'UserBot MTProto chưa được cấu hình.' };
+    }
+
+    const result = await this.telegramClientService.removeMemberFromGroup(dto.chatId, dto.userId);
+    return {
+      success: result,
+      message: result ? `Đã xóa user ${dto.userId} khỏi group (không cấm join lại)` : 'Xóa thành viên thất bại',
+    };
+  }
+
+  @Get('groups/mtproto/:chatId/members')
+  @ApiOperation({
+    summary: '(MTProto) Lấy danh sách thành viên trong Group',
+    description: 'Chỉ hỗ trợ Supergroup/Channel. Basic Group cần migrate lên Supergroup.',
+  })
+  @ApiQuery({ name: 'limit', required: false, type: Number, description: 'Số thành viên tối đa (mặc định 200)' })
+  async getGroupMembers(
+    @Param('chatId') chatId: string,
+    @Query('limit') limit?: string,
+  ): Promise<ApiResponse<Record<string, unknown>[] | null>> {
+    if (!this.telegramClientService.isReady) {
+      return { success: false, error: 'UserBot MTProto chưa được cấu hình.' };
+    }
+
+    const members = await this.telegramClientService.getGroupMembers(
+      chatId,
+      limit ? parseInt(limit, 10) : 200,
+    );
+    if (!members) {
+      return { success: false, error: 'Không thể lấy danh sách thành viên. Kiểm tra ID group và quyền.' };
+    }
+    return { success: true, data: members };
+  }
+
+  @Patch('groups/mtproto/about')
+  @ApiOperation({
+    summary: '(MTProto) Đổi mô tả (about) Group',
+    description: 'Đổi mô tả/description cho Group qua MTProto. Hỗ trợ cả Basic Group và Supergroup.',
+  })
+  async setGroupAboutMtproto(
+    @Body() dto: SetGroupAboutDto,
+  ): Promise<ApiResponse> {
+    if (!this.telegramClientService.isReady) {
+      return { success: false, error: 'UserBot MTProto chưa được cấu hình.' };
+    }
+
+    const result = await this.telegramClientService.setGroupAbout(dto.chatId, dto.about);
+    return {
+      success: result,
+      message: result ? 'Đã đổi mô tả group' : 'Đổi mô tả thất bại',
+    };
   }
 
   // ================================================================
@@ -661,6 +852,57 @@ export class TelegramController {
     };
   }
 
+  @Post('messages/unpin-all')
+  @ApiOperation({ summary: 'Bỏ ghim TẤT CẢ tin nhắn trong chat' })
+  async unpinAllMessages(
+    @Body() dto: ChatIdDto,
+  ): Promise<ApiResponse> {
+    const result = await this.telegramService.unpinAllMessages(dto.chatId);
+    return {
+      success: result,
+      message: result ? 'Đã bỏ ghim tất cả tin nhắn' : 'Bỏ ghim thất bại',
+    };
+  }
+
+  @Post('messages/forward')
+  @ApiOperation({
+    summary: 'Chuyển tiếp tin nhắn sang chat khác',
+    description: 'Tin nhắn forward sẽ hiển thị "Forwarded from ..." ở phía người nhận.',
+  })
+  async forwardMessage(
+    @Body() dto: ForwardMessageDto,
+  ): Promise<ApiResponse> {
+    const result = await this.telegramService.forwardMessage(
+      dto.chatId,
+      dto.fromChatId,
+      dto.messageId,
+    );
+    return {
+      success: result,
+      message: result ? 'Đã forward tin nhắn' : 'Forward thất bại',
+    };
+  }
+
+  @Post('messages/copy')
+  @ApiOperation({
+    summary: 'Sao chép tin nhắn sang chat khác (không hiện "Forwarded from")',
+    description: 'Giống forward nhưng tin nhắn mới trông như tin nhắn bình thường, không ghi nguồn.',
+  })
+  async copyMessage(
+    @Body() dto: CopyMessageDto,
+  ): Promise<ApiResponse> {
+    const result = await this.telegramService.copyMessage(
+      dto.chatId,
+      dto.fromChatId,
+      dto.messageId,
+      dto.caption,
+    );
+    return {
+      success: result,
+      message: result ? 'Đã copy tin nhắn' : 'Copy thất bại',
+    };
+  }
+
   // ================================================================
   // SEND — TEXT
   // ================================================================
@@ -715,6 +957,42 @@ export class TelegramController {
     return {
       success: result,
       message: result ? 'Đã gửi file' : 'Gửi file thất bại',
+    };
+  }
+
+  // ================================================================
+  // SEND — VIDEO
+  // ================================================================
+
+  @Post('send-video')
+  @ApiOperation({ summary: 'Gửi video qua Telegram' })
+  async sendVideo(
+    @Body() dto: SendTelegramVideoDto,
+  ): Promise<ApiResponse> {
+    const result = await this.telegramService.sendVideo(
+      dto.chatId,
+      dto.videoUrl,
+      dto.caption,
+    );
+    return {
+      success: result,
+      message: result ? 'Đã gửi video' : 'Gửi video thất bại',
+    };
+  }
+
+  // ================================================================
+  // SEND — STICKER
+  // ================================================================
+
+  @Post('send-sticker')
+  @ApiOperation({ summary: 'Gửi sticker qua Telegram' })
+  async sendSticker(
+    @Body() dto: SendTelegramStickerDto,
+  ): Promise<ApiResponse> {
+    const result = await this.telegramService.sendSticker(dto.chatId, dto.sticker);
+    return {
+      success: result,
+      message: result ? 'Đã gửi sticker' : 'Gửi sticker thất bại',
     };
   }
 

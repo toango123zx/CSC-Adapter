@@ -199,3 +199,43 @@ export class VerifySessionDto {
     @IsString()
     password?: string;
 }
+
+// ================================================================
+// REMOVE MEMBER (MTProto)
+// ================================================================
+
+/**
+ * DTO xóa thành viên khỏi Group qua MTProto UserBot.
+ * Hỗ trợ cả Basic Group và Supergroup/Channel.
+ */
+export class RemoveMemberDto {
+    @ApiProperty({ description: 'ID của Group/Supergroup', example: '-100123456789' })
+    @IsString()
+    @IsNotEmpty()
+    chatId!: string;
+
+    @ApiProperty({ description: 'Username hoặc ID của user cần xóa', example: '@nguyenvana' })
+    @IsString()
+    @IsNotEmpty()
+    userId!: string;
+}
+
+// ================================================================
+// SET GROUP ABOUT / DESCRIPTION (MTProto)
+// ================================================================
+
+/**
+ * DTO đổi mô tả (about) Group qua MTProto UserBot.
+ */
+export class SetGroupAboutDto {
+    @ApiProperty({ description: 'ID của Group/Supergroup', example: '-100123456789' })
+    @IsString()
+    @IsNotEmpty()
+    chatId!: string;
+
+    @ApiProperty({ description: 'Mô tả mới cho Group', example: 'Nhóm hỗ trợ khách hàng VIP - Phòng CSKH' })
+    @IsString()
+    @IsNotEmpty()
+    about!: string;
+}
+
