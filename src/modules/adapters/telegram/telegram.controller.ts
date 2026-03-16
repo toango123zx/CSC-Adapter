@@ -46,6 +46,19 @@ import {
   VerifySessionDto,
   RemoveMemberDto,
   SetGroupAboutDto,
+  SetGroupPhotoDto as MtprotoSetGroupPhotoDto,
+  SetGroupUsernameDto,
+  ToggleSlowModeDto,
+  MtprotoSendMessageDto,
+  MtprotoSendMediaDto,
+  MtprotoDeleteMessagesDto,
+  MtprotoPinMessageDto,
+  MtprotoGetHistoryDto,
+  MtprotoSearchMessagesDto,
+  MtprotoForwardMessagesDto,
+  GetUserInfoDto,
+  MtprotoRestrictMemberDto,
+  RevokeInviteLinkDto,
 } from './dto/telegram-mtproto.dto';
 
 @ApiTags('Telegram API')
@@ -1035,5 +1048,303 @@ export class TelegramController {
       success: result,
       message: result ? 'Đã gửi liên hệ' : 'Gửi liên hệ thất bại',
     };
+  }
+
+  // ================================================================
+  // MTPROTO — GROUP INFO & SETTINGS
+  // ================================================================
+
+  @Get('groups/mtproto/:chatId/info')
+  @ApiOperation({ summary: '(MTProto) Lấy thông tin chi tiết Group' })
+  async getGroupInfoMtproto(
+    @Param('chatId') chatId: string,
+  ): Promise<ApiResponse<Record<string, unknown> | null>> {
+    if (!this.telegramClientService.isReady) {
+      return { success: false, error: 'UserBot MTProto chưa được cấu hình.' };
+    }
+    const data = await this.telegramClientService.getGroupInfo(chatId);
+    return data ? { success: true, data } : { success: false, error: 'Không thể lấy thông tin group.' };
+  }
+
+  @Patch('groups/mtproto/photo')
+  @ApiOperation({ summary: '(MTProto) Đặt ảnh đại diện Group' })
+  async setGroupPhotoMtproto(
+    @Body() dto: MtprotoSetGroupPhotoDto,
+  ): Promise<ApiResponse> {
+    if (!this.telegramClientService.isReady) {
+      return { success: false, error: 'UserBot MTProto chưa được cấu hình.' };
+    }
+    const result = await this.telegramClientService.setGroupPhoto(dto.chatId, dto.photoUrl);
+    return { success: result, message: result ? 'Đã đặt ảnh group' : 'Đặt ảnh thất bại' };
+  }
+
+  @Delete('groups/mtproto/photo/:chatId')
+  @ApiOperation({ summary: '(MTProto) Xóa ảnh đại diện Group' })
+  async deleteGroupPhotoMtproto(
+    @Param('chatId') chatId: string,
+  ): Promise<ApiResponse> {
+    if (!this.telegramClientService.isReady) {
+      return { success: false, error: 'UserBot MTProto chưa được cấu hình.' };
+    }
+    const result = await this.telegramClientService.deleteGroupPhoto(chatId);
+    return { success: result, message: result ? 'Đã xóa ảnh group' : 'Xóa ảnh thất bại' };
+  }
+
+  @Post('groups/mtproto/migrate/:chatId')
+  @ApiOperation({
+    summary: '(MTProto) Nâng cấp Basic Group → Supergroup',
+    description: 'Migrate basic group thành supergroup. Group cũ sẽ bị thay thế — ID mới sẽ khác.',
+  })
+  async migrateToSupergroup(
+    @Param('chatId') chatId: string,
+  ): Promise<ApiResponse<{ newChatId: string } | null>> {
+    if (!this.telegramClientService.isReady) {
+      return { success: false, error: 'UserBot MTProto chưa được cấu hình.' };
+    }
+    const newChatId = await this.telegramClientService.migrateToSupergroup(chatId);
+    return newChatId
+      ? { success: true, data: { newChatId } }
+      : { success: false, error: 'Migrate thất bại. Group có thể đã là Supergroup.' };
+  }
+
+  @Patch('groups/mtproto/username')
+  @ApiOperation({
+    summary: '(MTProto) Đặt/xóa username công khai cho Supergroup',
+    description: 'Truyền username rỗng "" để chuyển group về private.',
+  })
+  async setGroupUsernameMtproto(
+    @Body() dto: SetGroupUsernameDto,
+  ): Promise<ApiResponse> {
+    if (!this.telegramClientService.isReady) {
+      return { success: false, error: 'UserBot MTProto chưa được cấu hình.' };
+    }
+    const result = await this.telegramClientService.setGroupUsername(dto.chatId, dto.username);
+    return { success: result, message: result ? 'Đã đặt username group' : 'Đặt username thất bại' };
+  }
+
+  @Patch('groups/mtproto/slow-mode')
+  @ApiOperation({
+    summary: '(MTProto) Bật/tắt Slow Mode',
+    description: 'Giá trị hợp lệ: 0 (tắt), 10, 30, 60, 300, 900, 3600 giây.',
+  })
+  async toggleSlowModeMtproto(
+    @Body() dto: ToggleSlowModeDto,
+  ): Promise<ApiResponse> {
+    if (!this.telegramClientService.isReady) {
+      return { success: false, error: 'UserBot MTProto chưa được cấu hình.' };
+    }
+    const result = await this.telegramClientService.toggleSlowMode(dto.chatId, dto.seconds);
+    return { success: result, message: result ? `Slow Mode: ${dto.seconds === 0 ? 'TẮT' : dto.seconds + 's'}` : 'Thay đổi Slow Mode thất bại' };
+  }
+
+  // ================================================================
+  // MTPROTO — MESSAGES
+  // ================================================================
+
+  @Post('messages/mtproto/send')
+  @ApiOperation({
+    summary: '(MTProto) Gửi tin nhắn text từ UserBot',
+    description: 'Tin nhắn sẽ hiển thị từ tài khoản UserBot, KHÔNG phải bot.',
+  })
+  async sendMessageMtproto(
+    @Body() dto: MtprotoSendMessageDto,
+  ): Promise<ApiResponse> {
+    if (!this.telegramClientService.isReady) {
+      return { success: false, error: 'UserBot MTProto chưa được cấu hình.' };
+    }
+    const result = await this.telegramClientService.sendMessage(dto.chatId, dto.message);
+    return { success: result, message: result ? 'UserBot đã gửi tin nhắn' : 'Gửi thất bại' };
+  }
+
+  @Post('messages/mtproto/send-media')
+  @ApiOperation({
+    summary: '(MTProto) Gửi media từ UserBot',
+    description: 'Hỗ trợ ảnh/video/tài liệu. GramJS tự nhận diện loại file.',
+  })
+  async sendMediaMtproto(
+    @Body() dto: MtprotoSendMediaDto,
+  ): Promise<ApiResponse> {
+    if (!this.telegramClientService.isReady) {
+      return { success: false, error: 'UserBot MTProto chưa được cấu hình.' };
+    }
+    const result = await this.telegramClientService.sendMedia(dto.chatId, dto.mediaUrl, dto.caption);
+    return { success: result, message: result ? 'UserBot đã gửi media' : 'Gửi media thất bại' };
+  }
+
+  @Delete('messages/mtproto/delete')
+  @ApiOperation({
+    summary: '(MTProto) Xóa tin nhắn qua UserBot',
+    description: 'Xóa cho tất cả mọi người. UserBot có thể xóa tin nhắn của mình hoặc người khác (nếu là admin).',
+  })
+  async deleteMessagesMtproto(
+    @Body() dto: MtprotoDeleteMessagesDto,
+  ): Promise<ApiResponse> {
+    if (!this.telegramClientService.isReady) {
+      return { success: false, error: 'UserBot MTProto chưa được cấu hình.' };
+    }
+    const result = await this.telegramClientService.deleteMessages(dto.chatId, dto.messageIds);
+    return { success: result, message: result ? `Đã xóa ${dto.messageIds.length} tin nhắn` : 'Xóa thất bại' };
+  }
+
+  @Post('messages/mtproto/pin')
+  @ApiOperation({ summary: '(MTProto) Ghim tin nhắn qua UserBot' })
+  async pinMessageMtproto(
+    @Body() dto: MtprotoPinMessageDto,
+  ): Promise<ApiResponse> {
+    if (!this.telegramClientService.isReady) {
+      return { success: false, error: 'UserBot MTProto chưa được cấu hình.' };
+    }
+    const result = await this.telegramClientService.pinMessage(dto.chatId, dto.messageId, dto.silent);
+    return { success: result, message: result ? 'Đã ghim tin nhắn' : 'Ghim thất bại' };
+  }
+
+  @Post('messages/mtproto/unpin')
+  @ApiOperation({ summary: '(MTProto) Bỏ ghim tin nhắn qua UserBot' })
+  async unpinMessageMtproto(
+    @Body() dto: MtprotoPinMessageDto,
+  ): Promise<ApiResponse> {
+    if (!this.telegramClientService.isReady) {
+      return { success: false, error: 'UserBot MTProto chưa được cấu hình.' };
+    }
+    const result = await this.telegramClientService.unpinMessage(dto.chatId, dto.messageId);
+    return { success: result, message: result ? 'Đã bỏ ghim tin nhắn' : 'Bỏ ghim thất bại' };
+  }
+
+  @Post('messages/mtproto/history')
+  @ApiOperation({
+    summary: '(MTProto) Lấy lịch sử tin nhắn',
+    description: 'Chức năng ĐỘC QUYỀN MTProto — Bot API không hỗ trợ lấy lịch sử tin nhắn.',
+  })
+  async getMessageHistoryMtproto(
+    @Body() dto: MtprotoGetHistoryDto,
+  ): Promise<ApiResponse<Array<Record<string, unknown>> | null>> {
+    if (!this.telegramClientService.isReady) {
+      return { success: false, error: 'UserBot MTProto chưa được cấu hình.' };
+    }
+    const data = await this.telegramClientService.getMessageHistory(dto.chatId, dto.limit, dto.offsetId);
+    return data ? { success: true, data } : { success: false, error: 'Không thể lấy lịch sử tin nhắn.' };
+  }
+
+  @Post('messages/mtproto/search')
+  @ApiOperation({
+    summary: '(MTProto) Tìm kiếm tin nhắn trong chat',
+    description: 'Chức năng ĐỘC QUYỀN MTProto — Bot API không hỗ trợ tìm kiếm tin nhắn.',
+  })
+  async searchMessagesMtproto(
+    @Body() dto: MtprotoSearchMessagesDto,
+  ): Promise<ApiResponse<Array<Record<string, unknown>> | null>> {
+    if (!this.telegramClientService.isReady) {
+      return { success: false, error: 'UserBot MTProto chưa được cấu hình.' };
+    }
+    const data = await this.telegramClientService.searchMessages(dto.chatId, dto.query, dto.limit);
+    return data ? { success: true, data } : { success: false, error: 'Tìm kiếm thất bại.' };
+  }
+
+  @Post('messages/mtproto/forward')
+  @ApiOperation({ summary: '(MTProto) Chuyển tiếp tin nhắn qua UserBot' })
+  async forwardMessagesMtproto(
+    @Body() dto: MtprotoForwardMessagesDto,
+  ): Promise<ApiResponse> {
+    if (!this.telegramClientService.isReady) {
+      return { success: false, error: 'UserBot MTProto chưa được cấu hình.' };
+    }
+    const result = await this.telegramClientService.forwardMessages(dto.fromChatId, dto.toChatId, dto.messageIds);
+    return { success: result, message: result ? `Forward ${dto.messageIds.length} tin nhắn thành công` : 'Forward thất bại' };
+  }
+
+  // ================================================================
+  // MTPROTO — USER & MEMBER
+  // ================================================================
+
+  @Get('users/mtproto/:userId/info')
+  @ApiOperation({
+    summary: '(MTProto) Lấy thông tin chi tiết user bất kỳ',
+    description: 'MTProto có thể lấy info bất kỳ user — không cần user đã interact với bot.',
+  })
+  async getUserInfoMtproto(
+    @Param('userId') userId: string,
+  ): Promise<ApiResponse<Record<string, unknown> | null>> {
+    if (!this.telegramClientService.isReady) {
+      return { success: false, error: 'UserBot MTProto chưa được cấu hình.' };
+    }
+    const data = await this.telegramClientService.getUserInfo(userId);
+    return data ? { success: true, data } : { success: false, error: 'Không thể lấy thông tin user.' };
+  }
+
+  @Post('members/mtproto/restrict')
+  @ApiOperation({
+    summary: '(MTProto) Hạn chế quyền thành viên trong Supergroup',
+    description: 'Dùng channels.EditBanned với ChatBannedRights tùy chỉnh.',
+  })
+  async restrictMemberMtproto(
+    @Body() dto: MtprotoRestrictMemberDto,
+  ): Promise<ApiResponse> {
+    if (!this.telegramClientService.isReady) {
+      return { success: false, error: 'UserBot MTProto chưa được cấu hình.' };
+    }
+    const result = await this.telegramClientService.restrictMember(
+      dto.chatId, dto.userId,
+      { sendMessages: dto.sendMessages, sendMedia: dto.sendMedia, sendStickers: dto.sendStickers, embedLinks: dto.embedLinks },
+      dto.untilDate,
+    );
+    return { success: result, message: result ? 'Đã restrict thành viên' : 'Restrict thất bại' };
+  }
+
+  @Post('members/mtproto/demote')
+  @ApiOperation({
+    summary: '(MTProto) Hạ quyền admin về member thường',
+    description: 'Set tất cả adminRights = false.',
+  })
+  async demoteAdminMtproto(
+    @Body() dto: RemoveMemberDto,
+  ): Promise<ApiResponse> {
+    if (!this.telegramClientService.isReady) {
+      return { success: false, error: 'UserBot MTProto chưa được cấu hình.' };
+    }
+    const result = await this.telegramClientService.demoteAdmin(dto.chatId, dto.userId);
+    return { success: result, message: result ? 'Đã hạ quyền admin' : 'Hạ quyền thất bại' };
+  }
+
+  // ================================================================
+  // MTPROTO — INVITE LINK & LEAVE
+  // ================================================================
+
+  @Post('groups/mtproto/invite-link/revoke')
+  @ApiOperation({ summary: '(MTProto) Thu hồi invite link — link bị vô hiệu hóa' })
+  async revokeInviteLinkMtproto(
+    @Body() dto: RevokeInviteLinkDto,
+  ): Promise<ApiResponse> {
+    if (!this.telegramClientService.isReady) {
+      return { success: false, error: 'UserBot MTProto chưa được cấu hình.' };
+    }
+    const result = await this.telegramClientService.revokeInviteLink(dto.chatId, dto.link);
+    return { success: result, message: result ? 'Đã thu hồi invite link' : 'Thu hồi thất bại' };
+  }
+
+  @Get('groups/mtproto/:chatId/invite-links')
+  @ApiOperation({ summary: '(MTProto) Lấy tất cả invite links của Group' })
+  async getAllInviteLinksMtproto(
+    @Param('chatId') chatId: string,
+  ): Promise<ApiResponse<Array<Record<string, unknown>> | null>> {
+    if (!this.telegramClientService.isReady) {
+      return { success: false, error: 'UserBot MTProto chưa được cấu hình.' };
+    }
+    const data = await this.telegramClientService.getAllInviteLinks(chatId);
+    return data ? { success: true, data } : { success: false, error: 'Không thể lấy danh sách invite links.' };
+  }
+
+  @Post('groups/mtproto/leave/:chatId')
+  @ApiOperation({
+    summary: '(MTProto) UserBot rời khỏi Group',
+    description: 'Hỗ trợ cả Basic Group và Supergroup/Channel.',
+  })
+  async leaveGroupMtproto(
+    @Param('chatId') chatId: string,
+  ): Promise<ApiResponse> {
+    if (!this.telegramClientService.isReady) {
+      return { success: false, error: 'UserBot MTProto chưa được cấu hình.' };
+    }
+    const result = await this.telegramClientService.leaveGroup(chatId);
+    return { success: result, message: result ? 'Đã rời khỏi group' : 'Rời group thất bại' };
   }
 }

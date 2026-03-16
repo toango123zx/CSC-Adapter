@@ -945,4 +945,846 @@ export class TelegramClientService implements OnModuleInit {
             return false;
         }
     }
+
+    // ================================================================
+    // GET GROUP INFO (UserBot)
+    // ================================================================
+
+    /**
+     * Lấy thông tin chi tiết của Group qua MTProto.
+     * Trả về: title, about, members count, admins count, photo, etc.
+     * Hỗ trợ cả Basic Group (messages.GetFullChat) và Supergroup/Channel (channels.GetFullChannel).
+     */
+    async getGroupInfo(chatId: string): Promise<Record<string, unknown> | null> {
+        if (!this.isConnected) {
+            this.logger.error('⚠️ UserBot chưa sẵn sàng. Cần cấu hình TELEGRAM_SESSION_STRING.');
+            return null;
+        }
+
+        try {
+            const entity = await this.client.getEntity(chatId);
+
+            if (entity.className === 'Channel') {
+                const result = await this.client.invoke(
+                    new Api.channels.GetFullChannel({ channel: entity })
+                );
+                const fullChat = result.fullChat as Api.ChannelFull;
+                const channel = result.chats[0] as Api.Channel;
+                return {
+                    id: chatId,
+                    title: channel.title,
+                    username: channel.username,
+                    about: fullChat.about,
+                    participantsCount: fullChat.participantsCount,
+                    adminsCount: fullChat.adminsCount,
+                    bannedCount: fullChat.bannedCount,
+                    kickedCount: fullChat.kickedCount,
+                    isMegagroup: channel.megagroup,
+                    isVerified: channel.verified,
+                    isRestricted: channel.restricted,
+                    date: channel.date,
+                };
+            }
+
+            if (entity.className === 'Chat') {
+                const rawId = chatId.startsWith('-') ? chatId.replace('-', '') : chatId;
+                const bigIntId = require('big-integer')(rawId);
+                const result = await this.client.invoke(
+                    new Api.messages.GetFullChat({ chatId: bigIntId })
+                );
+                const fullChat = result.fullChat as Api.ChatFull;
+                const chat = result.chats[0] as Api.Chat;
+                return {
+                    id: chatId,
+                    title: chat.title,
+                    about: fullChat.about,
+                    participantsCount: chat.participantsCount,
+                    date: chat.date,
+                    migratedTo: (fullChat as any).migratedTo ? true : false,
+                };
+            }
+
+            return null;
+        } catch (error: unknown) {
+            const msg = error instanceof Error ? error.message : 'Unknown error';
+            this.logger.error(`❌ Lỗi lấy thông tin Group ${chatId}: ${msg}`);
+            return null;
+        }
+    }
+
+    // ================================================================
+    // SET GROUP PHOTO (UserBot)
+    // ================================================================
+
+    /**
+     * Đặt ảnh đại diện cho Group qua MTProto.
+     * Upload file từ URL rồi set làm ảnh group.
+     */
+    async setGroupPhoto(chatId: string, photoUrl: string): Promise<boolean> {
+        if (!this.isConnected) {
+            this.logger.error('⚠️ UserBot chưa sẵn sàng. Cần cấu hình TELEGRAM_SESSION_STRING.');
+            return false;
+        }
+
+        try {
+            const entity = await this.client.getEntity(chatId);
+            const { CustomFile } = require('telegram/client');
+            const file = await this.client.uploadFile({
+                file: new CustomFile('photo.jpg', 0, photoUrl),
+                workers: 1,
+            });
+
+            if (entity.className === 'Channel') {
+                await this.client.invoke(
+                    new Api.channels.EditPhoto({
+                        channel: entity,
+                        photo: new Api.InputChatUploadedPhoto({ file }),
+                    })
+                );
+            } else {
+                const rawId = chatId.startsWith('-') ? chatId.replace('-', '') : chatId;
+                const bigIntId = require('big-integer')(rawId);
+                await this.client.invoke(
+                    new Api.messages.EditChatPhoto({
+                        chatId: bigIntId,
+                        photo: new Api.InputChatUploadedPhoto({ file }),
+                    })
+                );
+            }
+
+            this.logger.log(`📷 Đã đặt ảnh đại diện cho Group ${chatId}`);
+            return true;
+        } catch (error: unknown) {
+            const msg = error instanceof Error ? error.message : 'Unknown error';
+            this.logger.error(`❌ Lỗi đặt ảnh đại diện Group ${chatId}: ${msg}`);
+            return false;
+        }
+    }
+
+    /**
+     * Xóa ảnh đại diện Group qua MTProto.
+     */
+    async deleteGroupPhoto(chatId: string): Promise<boolean> {
+        if (!this.isConnected) {
+            this.logger.error('⚠️ UserBot chưa sẵn sàng. Cần cấu hình TELEGRAM_SESSION_STRING.');
+            return false;
+        }
+
+        try {
+            const entity = await this.client.getEntity(chatId);
+
+            if (entity.className === 'Channel') {
+                await this.client.invoke(
+                    new Api.channels.EditPhoto({
+                        channel: entity,
+                        photo: new Api.InputChatPhotoEmpty(),
+                    })
+                );
+            } else {
+                const rawId = chatId.startsWith('-') ? chatId.replace('-', '') : chatId;
+                const bigIntId = require('big-integer')(rawId);
+                await this.client.invoke(
+                    new Api.messages.EditChatPhoto({
+                        chatId: bigIntId,
+                        photo: new Api.InputChatPhotoEmpty(),
+                    })
+                );
+            }
+
+            this.logger.log(`🗑️ Đã xóa ảnh đại diện Group ${chatId}`);
+            return true;
+        } catch (error: unknown) {
+            const msg = error instanceof Error ? error.message : 'Unknown error';
+            this.logger.error(`❌ Lỗi xóa ảnh Group ${chatId}: ${msg}`);
+            return false;
+        }
+    }
+
+    // ================================================================
+    // MIGRATE TO SUPERGROUP (UserBot)
+    // ================================================================
+
+    /**
+     * Nâng cấp Basic Group → Supergroup.
+     * Sau khi migrate, Group cũ sẽ được thay thế bằng Supergroup mới (ID khác).
+     * @returns Chat ID mới (dạng -100xxx) hoặc null nếu thất bại
+     */
+    async migrateToSupergroup(chatId: string): Promise<string | null> {
+        if (!this.isConnected) {
+            this.logger.error('⚠️ UserBot chưa sẵn sàng. Cần cấu hình TELEGRAM_SESSION_STRING.');
+            return null;
+        }
+
+        try {
+            const rawId = chatId.startsWith('-') ? chatId.replace('-', '') : chatId;
+            const bigIntId = require('big-integer')(rawId);
+
+            const result = await this.client.invoke(
+                new Api.messages.MigrateChat({ chatId: bigIntId })
+            ) as unknown as Api.Updates;
+
+            // Tìm Channel mới trong kết quả
+            const channel = result.chats.find((c: any) => c.className === 'Channel') as Api.Channel;
+            if (channel) {
+                const newChatId = `-100${channel.id.toString()}`;
+                this.logger.log(`🔄 Đã migrate Basic Group ${chatId} → Supergroup ${newChatId}`);
+                return newChatId;
+            }
+
+            this.logger.warn(`⚠️ Migrate thành công nhưng không tìm thấy Channel mới.`);
+            return null;
+        } catch (error: unknown) {
+            const msg = error instanceof Error ? error.message : 'Unknown error';
+            this.logger.error(`❌ Lỗi migrate Group ${chatId}: ${msg}`);
+            return null;
+        }
+    }
+
+    // ================================================================
+    // SET GROUP USERNAME (UserBot)
+    // ================================================================
+
+    /**
+     * Đặt/xóa username công khai cho Supergroup.
+     * Truyền username rỗng "" để xóa username (chuyển về private).
+     */
+    async setGroupUsername(chatId: string, username: string): Promise<boolean> {
+        if (!this.isConnected) {
+            this.logger.error('⚠️ UserBot chưa sẵn sàng. Cần cấu hình TELEGRAM_SESSION_STRING.');
+            return false;
+        }
+
+        try {
+            const entity = await this.client.getEntity(chatId);
+
+            await this.client.invoke(
+                new Api.channels.UpdateUsername({
+                    channel: entity,
+                    username: username,
+                })
+            );
+
+            this.logger.log(`🏷️ Đã đặt username "${username || '(xóa)'}" cho Group ${chatId}`);
+            return true;
+        } catch (error: unknown) {
+            const msg = error instanceof Error ? error.message : 'Unknown error';
+            this.logger.error(`❌ Lỗi đặt username Group ${chatId}: ${msg}`);
+            return false;
+        }
+    }
+
+    // ================================================================
+    // TOGGLE SLOW MODE (UserBot)
+    // ================================================================
+
+    /**
+     * Bật/tắt Slow Mode cho Supergroup.
+     * @param seconds Thời gian chờ (giây). 0 = tắt. Giá trị hợp lệ: 0, 10, 30, 60, 300, 900, 3600
+     */
+    async toggleSlowMode(chatId: string, seconds: number): Promise<boolean> {
+        if (!this.isConnected) {
+            this.logger.error('⚠️ UserBot chưa sẵn sàng. Cần cấu hình TELEGRAM_SESSION_STRING.');
+            return false;
+        }
+
+        try {
+            const entity = await this.client.getEntity(chatId);
+
+            await this.client.invoke(
+                new Api.channels.ToggleSlowMode({
+                    channel: entity,
+                    seconds: seconds,
+                })
+            );
+
+            const status = seconds === 0 ? 'TẮT' : `BẬT (${seconds}s)`;
+            this.logger.log(`⏱️ Slow Mode ${status} cho Group ${chatId}`);
+            return true;
+        } catch (error: unknown) {
+            const msg = error instanceof Error ? error.message : 'Unknown error';
+            this.logger.error(`❌ Lỗi toggle Slow Mode Group ${chatId}: ${msg}`);
+            return false;
+        }
+    }
+
+    // ================================================================
+    // SEND MESSAGE (UserBot)
+    // ================================================================
+
+    /**
+     * Gửi tin nhắn text qua MTProto UserBot.
+     * Khác với Bot API: tin nhắn sẽ hiển thị từ tài khoản UserBot, không phải bot.
+     */
+    async sendMessage(chatId: string, message: string): Promise<boolean> {
+        if (!this.isConnected) {
+            this.logger.error('⚠️ UserBot chưa sẵn sàng. Cần cấu hình TELEGRAM_SESSION_STRING.');
+            return false;
+        }
+
+        try {
+            await this.client.sendMessage(chatId, { message });
+            this.logger.log(`📤 UserBot đã gửi tin nhắn → ${chatId}`);
+            return true;
+        } catch (error: unknown) {
+            const msg = error instanceof Error ? error.message : 'Unknown error';
+            this.logger.error(`❌ Lỗi gửi tin nhắn ${chatId}: ${msg}`);
+            return false;
+        }
+    }
+
+    // ================================================================
+    // SEND MEDIA (UserBot)
+    // ================================================================
+
+    /**
+     * Gửi media (ảnh/video/tài liệu) qua MTProto UserBot.
+     * GramJS tự nhận diện loại file từ URL.
+     */
+    async sendMedia(chatId: string, mediaUrl: string, caption?: string): Promise<boolean> {
+        if (!this.isConnected) {
+            this.logger.error('⚠️ UserBot chưa sẵn sàng. Cần cấu hình TELEGRAM_SESSION_STRING.');
+            return false;
+        }
+
+        try {
+            await this.client.sendFile(chatId, {
+                file: mediaUrl,
+                caption: caption,
+            });
+            this.logger.log(`📤 UserBot đã gửi media → ${chatId}`);
+            return true;
+        } catch (error: unknown) {
+            const msg = error instanceof Error ? error.message : 'Unknown error';
+            this.logger.error(`❌ Lỗi gửi media ${chatId}: ${msg}`);
+            return false;
+        }
+    }
+
+    // ================================================================
+    // DELETE MESSAGES (UserBot)
+    // ================================================================
+
+    /**
+     * Xóa tin nhắn qua MTProto UserBot.
+     * UserBot có thể xóa tin nhắn của mình hoặc tin người khác (nếu là admin).
+     */
+    async deleteMessages(chatId: string, messageIds: number[]): Promise<boolean> {
+        if (!this.isConnected) {
+            this.logger.error('⚠️ UserBot chưa sẵn sàng. Cần cấu hình TELEGRAM_SESSION_STRING.');
+            return false;
+        }
+
+        try {
+            const entity = await this.client.getEntity(chatId);
+
+            if (entity.className === 'Channel') {
+                await this.client.invoke(
+                    new Api.channels.DeleteMessages({
+                        channel: entity,
+                        id: messageIds,
+                    })
+                );
+            } else {
+                await this.client.invoke(
+                    new Api.messages.DeleteMessages({
+                        id: messageIds,
+                        revoke: true, // Xóa cho tất cả mọi người
+                    })
+                );
+            }
+
+            this.logger.log(`🗑️ Đã xóa ${messageIds.length} tin nhắn trong ${chatId}`);
+            return true;
+        } catch (error: unknown) {
+            const msg = error instanceof Error ? error.message : 'Unknown error';
+            this.logger.error(`❌ Lỗi xóa tin nhắn ${chatId}: ${msg}`);
+            return false;
+        }
+    }
+
+    // ================================================================
+    // PIN / UNPIN MESSAGE (UserBot)
+    // ================================================================
+
+    /**
+     * Ghim tin nhắn qua MTProto UserBot.
+     * @param silent Ghim im lặng (không thông báo cho members)
+     */
+    async pinMessage(chatId: string, messageId: number, silent: boolean = false): Promise<boolean> {
+        if (!this.isConnected) {
+            this.logger.error('⚠️ UserBot chưa sẵn sàng. Cần cấu hình TELEGRAM_SESSION_STRING.');
+            return false;
+        }
+
+        try {
+            const entity = await this.client.getEntity(chatId);
+
+            await this.client.invoke(
+                new Api.messages.UpdatePinnedMessage({
+                    peer: entity,
+                    id: messageId,
+                    silent: silent,
+                })
+            );
+
+            this.logger.log(`📌 Đã ghim message ${messageId} trong ${chatId}`);
+            return true;
+        } catch (error: unknown) {
+            const msg = error instanceof Error ? error.message : 'Unknown error';
+            this.logger.error(`❌ Lỗi ghim message ${chatId}: ${msg}`);
+            return false;
+        }
+    }
+
+    /**
+     * Bỏ ghim tin nhắn qua MTProto UserBot.
+     */
+    async unpinMessage(chatId: string, messageId: number): Promise<boolean> {
+        if (!this.isConnected) {
+            this.logger.error('⚠️ UserBot chưa sẵn sàng. Cần cấu hình TELEGRAM_SESSION_STRING.');
+            return false;
+        }
+
+        try {
+            const entity = await this.client.getEntity(chatId);
+
+            await this.client.invoke(
+                new Api.messages.UpdatePinnedMessage({
+                    peer: entity,
+                    id: messageId,
+                    unpin: true,
+                })
+            );
+
+            this.logger.log(`📌 Đã bỏ ghim message ${messageId} trong ${chatId}`);
+            return true;
+        } catch (error: unknown) {
+            const msg = error instanceof Error ? error.message : 'Unknown error';
+            this.logger.error(`❌ Lỗi bỏ ghim message ${chatId}: ${msg}`);
+            return false;
+        }
+    }
+
+    // ================================================================
+    // GET MESSAGE HISTORY (UserBot)
+    // ================================================================
+
+    /**
+     * Lấy lịch sử tin nhắn của chat qua MTProto.
+     * Bot API không có API này — chỉ MTProto mới lấy được lịch sử.
+     */
+    async getMessageHistory(
+        chatId: string,
+        limit: number = 50,
+        offsetId: number = 0,
+    ): Promise<Array<Record<string, unknown>> | null> {
+        if (!this.isConnected) {
+            this.logger.error('⚠️ UserBot chưa sẵn sàng. Cần cấu hình TELEGRAM_SESSION_STRING.');
+            return null;
+        }
+
+        try {
+            const entity = await this.client.getEntity(chatId);
+
+            const result = await this.client.invoke(
+                new Api.messages.GetHistory({
+                    peer: entity,
+                    offsetId: offsetId,
+                    offsetDate: 0,
+                    addOffset: 0,
+                    limit: limit,
+                    maxId: 0,
+                    minId: 0,
+                    hash: require('big-integer')(0),
+                })
+            );
+
+            if (result.className === 'messages.MessagesNotModified') {
+                return [];
+            }
+
+            const messages = (result as any).messages || [];
+            const formatted = messages.map((m: any) => ({
+                id: m.id,
+                date: m.date,
+                message: m.message,
+                fromId: m.fromId?.userId?.toString(),
+                replyTo: m.replyTo?.replyToMsgId,
+                media: m.media ? m.media.className : null,
+                pinned: m.pinned || false,
+            }));
+
+            this.logger.log(`📜 Lấy ${formatted.length} tin nhắn từ ${chatId}`);
+            return formatted;
+        } catch (error: unknown) {
+            const msg = error instanceof Error ? error.message : 'Unknown error';
+            this.logger.error(`❌ Lỗi lấy lịch sử tin nhắn ${chatId}: ${msg}`);
+            return null;
+        }
+    }
+
+    // ================================================================
+    // SEARCH MESSAGES (UserBot)
+    // ================================================================
+
+    /**
+     * Tìm kiếm tin nhắn trong chat qua MTProto.
+     * Bot API không có chức năng tìm kiếm — chỉ MTProto mới có.
+     */
+    async searchMessages(
+        chatId: string,
+        query: string,
+        limit: number = 20,
+    ): Promise<Array<Record<string, unknown>> | null> {
+        if (!this.isConnected) {
+            this.logger.error('⚠️ UserBot chưa sẵn sàng. Cần cấu hình TELEGRAM_SESSION_STRING.');
+            return null;
+        }
+
+        try {
+            const entity = await this.client.getEntity(chatId);
+
+            const result = await this.client.invoke(
+                new Api.messages.Search({
+                    peer: entity,
+                    q: query,
+                    filter: new Api.InputMessagesFilterEmpty(),
+                    minDate: 0,
+                    maxDate: 0,
+                    offsetId: 0,
+                    addOffset: 0,
+                    limit: limit,
+                    maxId: 0,
+                    minId: 0,
+                    hash: require('big-integer')(0),
+                })
+            );
+
+            const messages = (result as any).messages || [];
+            const formatted = messages.map((m: any) => ({
+                id: m.id,
+                date: m.date,
+                message: m.message,
+                fromId: m.fromId?.userId?.toString(),
+            }));
+
+            this.logger.log(`🔍 Tìm "${query}" trong ${chatId}: ${formatted.length} kết quả`);
+            return formatted;
+        } catch (error: unknown) {
+            const msg = error instanceof Error ? error.message : 'Unknown error';
+            this.logger.error(`❌ Lỗi tìm kiếm tin nhắn ${chatId}: ${msg}`);
+            return null;
+        }
+    }
+
+    // ================================================================
+    // FORWARD MESSAGES (UserBot)
+    // ================================================================
+
+    /**
+     * Chuyển tiếp tin nhắn từ chat này sang chat khác qua MTProto.
+     */
+    async forwardMessages(
+        fromChatId: string,
+        toChatId: string,
+        messageIds: number[],
+    ): Promise<boolean> {
+        if (!this.isConnected) {
+            this.logger.error('⚠️ UserBot chưa sẵn sàng. Cần cấu hình TELEGRAM_SESSION_STRING.');
+            return false;
+        }
+
+        try {
+            const fromPeer = await this.client.getEntity(fromChatId);
+            const toPeer = await this.client.getEntity(toChatId);
+
+            await this.client.invoke(
+                new Api.messages.ForwardMessages({
+                    fromPeer: fromPeer,
+                    toPeer: toPeer,
+                    id: messageIds,
+                    randomId: messageIds.map(() => require('big-integer')(Math.floor(Math.random() * 1e15))),
+                })
+            );
+
+            this.logger.log(`↗️ Forward ${messageIds.length} tin: ${fromChatId} → ${toChatId}`);
+            return true;
+        } catch (error: unknown) {
+            const msg = error instanceof Error ? error.message : 'Unknown error';
+            this.logger.error(`❌ Lỗi forward messages: ${msg}`);
+            return false;
+        }
+    }
+
+    // ================================================================
+    // GET USER INFO (UserBot)
+    // ================================================================
+
+    /**
+     * Lấy thông tin chi tiết user qua MTProto.
+     * Bot API chỉ lấy được info user đã interact — MTProto lấy được info bất kỳ user.
+     */
+    async getUserInfo(userId: string): Promise<Record<string, unknown> | null> {
+        if (!this.isConnected) {
+            this.logger.error('⚠️ UserBot chưa sẵn sàng. Cần cấu hình TELEGRAM_SESSION_STRING.');
+            return null;
+        }
+
+        try {
+            const user = await this.client.getEntity(userId) as Api.User;
+
+            const result = await this.client.invoke(
+                new Api.users.GetFullUser({ id: user })
+            );
+
+            const fullUser = result.fullUser;
+            return {
+                id: user.id?.toString(),
+                firstName: user.firstName,
+                lastName: user.lastName,
+                username: user.username,
+                phone: user.phone,
+                isBot: user.bot,
+                isVerified: user.verified,
+                isRestricted: user.restricted,
+                isPremium: user.premium,
+                about: fullUser.about,
+                commonChatsCount: fullUser.commonChatsCount,
+            };
+        } catch (error: unknown) {
+            const msg = error instanceof Error ? error.message : 'Unknown error';
+            this.logger.error(`❌ Lỗi lấy thông tin user ${userId}: ${msg}`);
+            return null;
+        }
+    }
+
+    // ================================================================
+    // RESTRICT MEMBER (UserBot)
+    // ================================================================
+
+    /**
+     * Hạn chế quyền thành viên trong Supergroup qua MTProto.
+     * Dùng channels.EditBanned với ChatBannedRights tùy chỉnh.
+     *
+     * @param untilDate Unix timestamp hết hạn. 0 = vĩnh viễn.
+     */
+    async restrictMember(
+        chatId: string,
+        userId: string,
+        rights: {
+            sendMessages?: boolean;
+            sendMedia?: boolean;
+            sendStickers?: boolean;
+            embedLinks?: boolean;
+        },
+        untilDate: number = 0,
+    ): Promise<boolean> {
+        if (!this.isConnected) {
+            this.logger.error('⚠️ UserBot chưa sẵn sàng. Cần cấu hình TELEGRAM_SESSION_STRING.');
+            return false;
+        }
+
+        try {
+            const entity = await this.client.getEntity(chatId);
+            const user = await this.client.getEntity(userId);
+
+            await this.client.invoke(
+                new Api.channels.EditBanned({
+                    channel: entity,
+                    participant: user,
+                    bannedRights: new Api.ChatBannedRights({
+                        untilDate: untilDate,
+                        sendMessages: rights.sendMessages ?? true,
+                        sendMedia: rights.sendMedia ?? true,
+                        sendStickers: rights.sendStickers ?? true,
+                        sendGifs: rights.sendStickers ?? true,
+                        sendGames: rights.sendStickers ?? true,
+                        sendInline: rights.sendStickers ?? true,
+                        embedLinks: rights.embedLinks ?? true,
+                    }),
+                })
+            );
+
+            this.logger.log(`🔇 Đã restrict user ${userId} trong Group ${chatId}`);
+            return true;
+        } catch (error: unknown) {
+            const msg = error instanceof Error ? error.message : 'Unknown error';
+            this.logger.error(`❌ Lỗi restrict ${userId} trong ${chatId}: ${msg}`);
+            return false;
+        }
+    }
+
+    // ================================================================
+    // DEMOTE ADMIN (UserBot)
+    // ================================================================
+
+    /**
+     * Hạ quyền admin về member thường qua MTProto.
+     * Set tất cả adminRights = false.
+     */
+    async demoteAdmin(chatId: string, userId: string): Promise<boolean> {
+        if (!this.isConnected) {
+            this.logger.error('⚠️ UserBot chưa sẵn sàng. Cần cấu hình TELEGRAM_SESSION_STRING.');
+            return false;
+        }
+
+        try {
+            const channel = await this.client.getEntity(chatId);
+            const user = await this.client.getEntity(userId);
+
+            await this.client.invoke(
+                new Api.channels.EditAdmin({
+                    channel: channel,
+                    userId: user,
+                    adminRights: new Api.ChatAdminRights({
+                        changeInfo: false,
+                        postMessages: false,
+                        editMessages: false,
+                        deleteMessages: false,
+                        banUsers: false,
+                        inviteUsers: false,
+                        pinMessages: false,
+                        addAdmins: false,
+                        anonymous: false,
+                        manageCall: false,
+                        manageTopics: false,
+                    }),
+                    rank: '',
+                })
+            );
+
+            this.logger.log(`⬇️ Đã hạ quyền admin ${userId} trong Group ${chatId}`);
+            return true;
+        } catch (error: unknown) {
+            const msg = error instanceof Error ? error.message : 'Unknown error';
+            this.logger.error(`❌ Lỗi demote ${userId} trong ${chatId}: ${msg}`);
+            return false;
+        }
+    }
+
+    // ================================================================
+    // REVOKE INVITE LINK (UserBot)
+    // ================================================================
+
+    /**
+     * Thu hồi (revoke) một invite link — link sẽ không còn hoạt động.
+     */
+    async revokeInviteLink(chatId: string, link: string): Promise<boolean> {
+        if (!this.isConnected) {
+            this.logger.error('⚠️ UserBot chưa sẵn sàng. Cần cấu hình TELEGRAM_SESSION_STRING.');
+            return false;
+        }
+
+        try {
+            const entity = await this.client.getEntity(chatId);
+
+            await this.client.invoke(
+                new Api.messages.EditExportedChatInvite({
+                    peer: entity,
+                    link: link,
+                    revoked: true,
+                })
+            );
+
+            this.logger.log(`🔒 Đã thu hồi invite link trong Group ${chatId}`);
+            return true;
+        } catch (error: unknown) {
+            const msg = error instanceof Error ? error.message : 'Unknown error';
+            this.logger.error(`❌ Lỗi thu hồi invite link ${chatId}: ${msg}`);
+            return false;
+        }
+    }
+
+    // ================================================================
+    // GET ALL INVITE LINKS (UserBot)
+    // ================================================================
+
+    /**
+     * Lấy tất cả invite links của Group qua MTProto.
+     */
+    async getAllInviteLinks(chatId: string): Promise<Array<Record<string, unknown>> | null> {
+        if (!this.isConnected) {
+            this.logger.error('⚠️ UserBot chưa sẵn sàng. Cần cấu hình TELEGRAM_SESSION_STRING.');
+            return null;
+        }
+
+        try {
+            const entity = await this.client.getEntity(chatId);
+            const me = await this.client.getMe() as Api.User;
+
+            const result = await this.client.invoke(
+                new Api.messages.GetExportedChatInvites({
+                    peer: entity,
+                    adminId: me,
+                    limit: 100,
+                })
+            );
+
+            const invites = (result as Api.messages.ExportedChatInvites).invites || [];
+            const formatted = invites.map((inv: any) => ({
+                link: inv.link,
+                title: inv.title,
+                date: inv.date,
+                expireDate: inv.expireDate,
+                usageLimit: inv.usageLimit,
+                usage: inv.usage,
+                requestNeeded: inv.requestNeeded,
+                revoked: inv.revoked,
+            }));
+
+            this.logger.log(`🔗 Lấy ${formatted.length} invite links từ Group ${chatId}`);
+            return formatted;
+        } catch (error: unknown) {
+            const msg = error instanceof Error ? error.message : 'Unknown error';
+            this.logger.error(`❌ Lỗi lấy invite links ${chatId}: ${msg}`);
+            return null;
+        }
+    }
+
+    // ================================================================
+    // LEAVE GROUP (UserBot)
+    // ================================================================
+
+    /**
+     * Rời khỏi Group/Channel qua MTProto.
+     * Hỗ trợ cả Basic Group (messages.DeleteChatUser) và Supergroup/Channel (channels.LeaveChannel).
+     */
+    async leaveGroup(chatId: string): Promise<boolean> {
+        if (!this.isConnected) {
+            this.logger.error('⚠️ UserBot chưa sẵn sàng. Cần cấu hình TELEGRAM_SESSION_STRING.');
+            return false;
+        }
+
+        try {
+            const entity = await this.client.getEntity(chatId);
+
+            if (entity.className === 'Channel') {
+                await this.client.invoke(
+                    new Api.channels.LeaveChannel({ channel: entity })
+                );
+                this.logger.log(`🚪 Đã rời khỏi Supergroup/Channel ${chatId}`);
+                return true;
+            }
+
+            if (entity.className === 'Chat') {
+                const rawId = chatId.startsWith('-') ? chatId.replace('-', '') : chatId;
+                const bigIntId = require('big-integer')(rawId);
+                await this.client.invoke(
+                    new Api.messages.DeleteChatUser({
+                        chatId: bigIntId,
+                        userId: 'me',
+                    })
+                );
+                this.logger.log(`🚪 Đã rời khỏi Basic Group ${chatId}`);
+                return true;
+            }
+
+            this.logger.warn(`⚠️ Entity ${chatId} không phải Group hoặc Channel.`);
+            return false;
+        } catch (error: unknown) {
+            const msg = error instanceof Error ? error.message : 'Unknown error';
+            this.logger.error(`❌ Lỗi rời Group ${chatId}: ${msg}`);
+            return false;
+        }
+    }
 }

@@ -1,6 +1,6 @@
 // src/modules/adapters/telegram/dto/telegram-mtproto.dto.ts
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsString, IsNotEmpty, IsOptional, IsArray, ArrayMinSize, IsBoolean, IsInt } from 'class-validator';
+import { IsString, IsNotEmpty, IsOptional, IsArray, ArrayMinSize, IsBoolean, IsInt, IsNumber } from 'class-validator';
 
 /**
  * Tạo Group chỉ có mình (+ optional bots).
@@ -239,3 +239,217 @@ export class SetGroupAboutDto {
     about!: string;
 }
 
+// ================================================================
+// GROUP INFO & SETTINGS (MTProto)
+// ================================================================
+
+export class SetGroupPhotoDto {
+    @ApiProperty({ description: 'ID của Group/Supergroup', example: '-100123456789' })
+    @IsString()
+    @IsNotEmpty()
+    chatId!: string;
+
+    @ApiProperty({ description: 'URL ảnh đại diện mới', example: 'https://example.com/photo.jpg' })
+    @IsString()
+    @IsNotEmpty()
+    photoUrl!: string;
+}
+
+export class SetGroupUsernameDto {
+    @ApiProperty({ description: 'ID của Supergroup', example: '-100123456789' })
+    @IsString()
+    @IsNotEmpty()
+    chatId!: string;
+
+    @ApiProperty({ description: 'Username công khai (không có @). Truyền "" để xóa username.', example: 'my_group_public' })
+    @IsString()
+    username!: string;
+}
+
+export class ToggleSlowModeDto {
+    @ApiProperty({ description: 'ID của Supergroup', example: '-100123456789' })
+    @IsString()
+    @IsNotEmpty()
+    chatId!: string;
+
+    @ApiProperty({
+        description: 'Thời gian chờ (giây) giữa 2 tin nhắn. 0 = tắt Slow Mode. Giá trị hợp lệ: 0, 10, 30, 60, 300, 900, 3600',
+        example: 30,
+    })
+    @IsNumber()
+    seconds!: number;
+}
+
+// ================================================================
+// MESSAGES (MTProto)
+// ================================================================
+
+export class MtprotoSendMessageDto {
+    @ApiProperty({ description: 'ID chat/group đích', example: '-100123456789' })
+    @IsString()
+    @IsNotEmpty()
+    chatId!: string;
+
+    @ApiProperty({ description: 'Nội dung tin nhắn', example: 'Hello from UserBot!' })
+    @IsString()
+    @IsNotEmpty()
+    message!: string;
+}
+
+export class MtprotoSendMediaDto {
+    @ApiProperty({ description: 'ID chat/group đích', example: '-100123456789' })
+    @IsString()
+    @IsNotEmpty()
+    chatId!: string;
+
+    @ApiProperty({ description: 'URL hoặc đường dẫn file media', example: 'https://example.com/image.jpg' })
+    @IsString()
+    @IsNotEmpty()
+    mediaUrl!: string;
+
+    @ApiPropertyOptional({ description: 'Caption đi kèm media' })
+    @IsOptional()
+    @IsString()
+    caption?: string;
+}
+
+export class MtprotoDeleteMessagesDto {
+    @ApiProperty({ description: 'ID chat/group', example: '-100123456789' })
+    @IsString()
+    @IsNotEmpty()
+    chatId!: string;
+
+    @ApiProperty({ description: 'Danh sách message ID cần xóa', example: [101, 102, 103], type: [Number] })
+    @IsArray()
+    messageIds!: number[];
+}
+
+export class MtprotoPinMessageDto {
+    @ApiProperty({ description: 'ID chat/group', example: '-100123456789' })
+    @IsString()
+    @IsNotEmpty()
+    chatId!: string;
+
+    @ApiProperty({ description: 'ID tin nhắn cần ghim/bỏ ghim', example: 42 })
+    @IsNumber()
+    messageId!: number;
+
+    @ApiPropertyOptional({ description: 'Ghim im lặng (không thông báo). Mặc định false', default: false })
+    @IsOptional()
+    @IsBoolean()
+    silent?: boolean;
+}
+
+export class MtprotoGetHistoryDto {
+    @ApiProperty({ description: 'ID chat/group', example: '-100123456789' })
+    @IsString()
+    @IsNotEmpty()
+    chatId!: string;
+
+    @ApiPropertyOptional({ description: 'Số tin nhắn tối đa (mặc định 50)', default: 50 })
+    @IsOptional()
+    @IsNumber()
+    limit?: number;
+
+    @ApiPropertyOptional({ description: 'Offset message ID (phân trang)', default: 0 })
+    @IsOptional()
+    @IsNumber()
+    offsetId?: number;
+}
+
+export class MtprotoSearchMessagesDto {
+    @ApiProperty({ description: 'ID chat/group', example: '-100123456789' })
+    @IsString()
+    @IsNotEmpty()
+    chatId!: string;
+
+    @ApiProperty({ description: 'Từ khóa tìm kiếm', example: 'hello' })
+    @IsString()
+    @IsNotEmpty()
+    query!: string;
+
+    @ApiPropertyOptional({ description: 'Số kết quả tối đa (mặc định 20)', default: 20 })
+    @IsOptional()
+    @IsNumber()
+    limit?: number;
+}
+
+export class MtprotoForwardMessagesDto {
+    @ApiProperty({ description: 'ID chat nguồn', example: '-100111111111' })
+    @IsString()
+    @IsNotEmpty()
+    fromChatId!: string;
+
+    @ApiProperty({ description: 'ID chat đích', example: '-100222222222' })
+    @IsString()
+    @IsNotEmpty()
+    toChatId!: string;
+
+    @ApiProperty({ description: 'Danh sách message ID cần forward', example: [101, 102], type: [Number] })
+    @IsArray()
+    messageIds!: number[];
+}
+
+// ================================================================
+// USER & MEMBER (MTProto)
+// ================================================================
+
+export class GetUserInfoDto {
+    @ApiProperty({ description: 'Username hoặc ID user', example: '@nguyenvana' })
+    @IsString()
+    @IsNotEmpty()
+    userId!: string;
+}
+
+export class MtprotoRestrictMemberDto {
+    @ApiProperty({ description: 'ID của Group/Supergroup', example: '-100123456789' })
+    @IsString()
+    @IsNotEmpty()
+    chatId!: string;
+
+    @ApiProperty({ description: 'Username hoặc ID user', example: '@nguyenvana' })
+    @IsString()
+    @IsNotEmpty()
+    userId!: string;
+
+    @ApiPropertyOptional({ description: 'Cấm gửi tin nhắn', default: true })
+    @IsOptional()
+    @IsBoolean()
+    sendMessages?: boolean;
+
+    @ApiPropertyOptional({ description: 'Cấm gửi media', default: true })
+    @IsOptional()
+    @IsBoolean()
+    sendMedia?: boolean;
+
+    @ApiPropertyOptional({ description: 'Cấm gửi sticker/gif', default: true })
+    @IsOptional()
+    @IsBoolean()
+    sendStickers?: boolean;
+
+    @ApiPropertyOptional({ description: 'Cấm gửi link preview', default: true })
+    @IsOptional()
+    @IsBoolean()
+    embedLinks?: boolean;
+
+    @ApiPropertyOptional({ description: 'Unix timestamp hết hạn. 0 = vĩnh viễn', default: 0 })
+    @IsOptional()
+    @IsNumber()
+    untilDate?: number;
+}
+
+// ================================================================
+// INVITE LINK MANAGEMENT (MTProto)
+// ================================================================
+
+export class RevokeInviteLinkDto {
+    @ApiProperty({ description: 'ID của Group/Supergroup', example: '-100123456789' })
+    @IsString()
+    @IsNotEmpty()
+    chatId!: string;
+
+    @ApiProperty({ description: 'Link invite cần thu hồi', example: 'https://t.me/+abc123xyz' })
+    @IsString()
+    @IsNotEmpty()
+    link!: string;
+}
